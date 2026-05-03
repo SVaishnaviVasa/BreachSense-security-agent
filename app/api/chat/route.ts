@@ -17,8 +17,8 @@ import {
 
 export const maxDuration = 30;
 
-// Check if Grok AI is available
-const USE_AI = !!grokModel;
+// Grok AI is always available now
+const USE_AI = true;
 
 // Helper to extract text from UIMessage
 function getMessageText(message: UIMessage): string {

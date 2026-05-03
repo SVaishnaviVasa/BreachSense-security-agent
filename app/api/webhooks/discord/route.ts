@@ -9,8 +9,8 @@ import {
   getDemoHelpMessage,
 } from "@/lib/ai/demo-responses";
 
-const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY;
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const DISCORD_PUBLIC_KEY = "392ed7caf36960470ac1b672ea38711562a3a8251ad61d1f0431f17acf5f9652";
+const DISCORD_BOT_TOKEN = "MTUwMDQwMDM3MjE5MDI4MTkyOQ.Gwytui._3wlng4uZuw_aSyk61TlFB88klrouyifGLQs2g";
 
 interface DiscordMessage {
   type: number;
