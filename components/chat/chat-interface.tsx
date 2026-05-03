@@ -8,10 +8,11 @@ import { ChatInput } from "./chat-input";
 import { StatusBadge } from "./status-badge";
 import { QuickActions } from "./quick-actions";
 import { TargetSettings } from "./target-settings";
-import { Shield, Terminal, AlertCircle, Settings, MessageSquare } from "lucide-react";
+import { Shield, Terminal, AlertCircle, Settings, MessageSquare, Pencil, Check, X } from "lucide-react";
 import { parseCommand, getHelpMessage } from "@/lib/ai/agent";
 import { setTarget, getContext } from "@/lib/context/store";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ChatSDKBadge } from "./chatsdk-badge";
 
 // Helper to extract text from UIMessage parts
@@ -46,7 +47,9 @@ I think like an attacker to protect like an expert. I can help you:
 
 ---
 
-**Default Target:** OWASP Juice Shop (a known vulnerable application)
+**Default Target:** OWASP Juice Shop
+
+**To change target:** Click the URL in the bar just below this header, or type \`/target https://your-app.com\` in the chat below.
 
 Try \`/break\` now to see a detailed attack simulation!
 
@@ -58,6 +61,9 @@ export function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [currentTarget, setCurrentTarget] = useState(getContext().target);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState(getContext().target);
+  const targetInputRef = useRef<HTMLInputElement>(null);
   
   // Local messages for commands handled client-side (like /target, /help)
   const [localMessages, setLocalMessages] = useState<Array<{
@@ -146,6 +152,28 @@ You can now use \`/break\` to simulate an attack on this target.`,
     sendMessage({ text: message });
   };
 
+  const handleInlineTargetEdit = () => {
+    setEditingTarget(true);
+    setTargetInput(currentTarget);
+    setTimeout(() => targetInputRef.current?.select(), 50);
+  };
+
+  const handleInlineTargetSave = () => {
+    if (!targetInput.trim()) return;
+    try {
+      new URL(targetInput.trim());
+      handleTargetChange(targetInput.trim());
+      setEditingTarget(false);
+    } catch {
+      // invalid URL - keep editing
+    }
+  };
+
+  const handleInlineTargetCancel = () => {
+    setEditingTarget(false);
+    setTargetInput(currentTarget);
+  };
+
   const handleTargetChange = (newTarget: string) => {
     const updatedContext = setTarget("default", newTarget);
     setCurrentTarget(updatedContext.target);
@@ -208,13 +236,53 @@ You can now use \`/break\` to simulate an attack on this target.`,
         />
       )}
 
-      {/* Target Context Banner */}
+      {/* Target Bar - always visible, inline editable */}
       <div className="flex items-center gap-2 px-4 py-2 bg-secondary/30 border-b border-border">
-        <Terminal className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">
-          Current target:{" "}
-          <code className="text-primary">{currentTarget}</code>
-        </span>
+        <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground shrink-0">Target:</span>
+        {editingTarget ? (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Input
+              ref={targetInputRef}
+              value={targetInput}
+              onChange={(e) => setTargetInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleInlineTargetSave();
+                if (e.key === "Escape") handleInlineTargetCancel();
+              }}
+              placeholder="https://your-app.com"
+              className="h-7 text-xs flex-1 bg-background border-primary/40 focus-visible:ring-primary/40"
+              autoFocus
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-primary hover:text-primary shrink-0"
+              onClick={handleInlineTargetSave}
+            >
+              <Check className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-muted-foreground shrink-0"
+              onClick={handleInlineTargetCancel}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <button
+            onClick={handleInlineTargetEdit}
+            className="flex items-center gap-2 flex-1 min-w-0 group"
+          >
+            <code className="text-primary text-xs truncate">{currentTarget}</code>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              click to change
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Messages */}

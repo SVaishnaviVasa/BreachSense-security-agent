@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Globe, Server, ExternalLink } from "lucide-react";
+import { X, Globe, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,32 +125,8 @@ export function TargetSettings({ currentTarget, onTargetChange, onClose }: Targe
         </div>
 
         <p className="text-xs text-muted-foreground mt-4">
-          Note: BreachSense simulates security analysis. Always ensure you have permission to test any target.
+          You can also change the target anytime by clicking the target URL in the bar above the chat, or by typing <code className="bg-muted px-1 rounded">/target https://your-url.com</code> in the chat.
         </p>
-
-        {/* Vercel Project Settings Access */}
-        <div className="mt-6 pt-4 border-t border-border">
-          <h3 className="text-xs font-semibold text-foreground mb-3">Project Configuration</h3>
-          <div className="bg-secondary/50 rounded-lg p-3 border border-border">
-            <p className="text-xs text-muted-foreground mb-3">
-              To add Discord bot credentials and Grok API key to your Vercel project:
-            </p>
-            <ol className="text-xs text-muted-foreground space-y-2 mb-4">
-              <li>1. Open your Vercel project dashboard</li>
-              <li>2. Go to Settings &gt; Environment Variables</li>
-              <li>3. Add the required credentials</li>
-            </ol>
-            <Button
-              onClick={() => window.open("https://vercel.com/dashboard", "_blank")}
-              className="w-full"
-              variant="outline"
-              size="sm"
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open Vercel Dashboard
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );
