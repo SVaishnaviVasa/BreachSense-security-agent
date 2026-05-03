@@ -1,4 +1,11 @@
-import { streamText, convertToModelMessages, UIMessage, consumeStream } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  UIMessage,
+  consumeStream,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+} from "ai";
 import {
   MODEL,
   SYSTEM_PROMPT,
@@ -19,7 +26,6 @@ import {
 export const maxDuration = 30;
 
 // Demo mode is enabled by default when ENABLE_AI_GATEWAY is not set to "true"
-// This allows the app to work without a credit card configured on Vercel
 const DEMO_MODE = process.env.ENABLE_AI_GATEWAY !== "true";
 
 // Helper to extract text from UIMessage
@@ -31,63 +37,10 @@ function getMessageText(message: UIMessage): string {
     .join("");
 }
 
-// Create a UIMessage-compatible streaming response for demo mode
-// This mimics the exact format that toUIMessageStreamResponse() produces
-function createDemoStreamResponse(text: string): Response {
-  const encoder = new TextEncoder();
-  const messageId = `demo-${Date.now()}`;
-  
-  const stream = new ReadableStream({
-    async start(controller) {
-      // Message start event
-      const startEvent = {
-        type: "start",
-        value: {
-          messageId,
-          role: "assistant",
-        }
-      };
-      controller.enqueue(encoder.encode(`2:${JSON.stringify(startEvent)}\n`));
-      
-      // Stream text in chunks for a realistic typing effect
-      const chunkSize = 50; // characters per chunk
-      for (let i = 0; i < text.length; i += chunkSize) {
-        const chunk = text.slice(i, i + chunkSize);
-        const textEvent = {
-          type: "text",
-          value: chunk,
-        };
-        controller.enqueue(encoder.encode(`2:${JSON.stringify(textEvent)}\n`));
-        
-        // Small delay between chunks for realistic streaming
-        await new Promise(resolve => setTimeout(resolve, 30));
-      }
-      
-      // Finish event
-      const finishEvent = {
-        type: "finish",
-        value: {
-          finishReason: "stop",
-        }
-      };
-      controller.enqueue(encoder.encode(`2:${JSON.stringify(finishEvent)}\n`));
-      
-      controller.close();
-    }
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "X-Vercel-AI-Data-Stream": "v1",
-    },
-  });
-}
-
 export async function POST(req: Request) {
   try {
     const { messages }: { messages: UIMessage[] } = await req.json();
-    
+
     if (!messages || messages.length === 0) {
       return new Response("No messages provided", { status: 400 });
     }
@@ -101,7 +54,7 @@ export async function POST(req: Request) {
     const command = parseCommand(lastMessageText);
     const context = getContext("default");
 
-    // DEMO MODE: Use pre-built responses when AI Gateway is not available
+    // DEMO MODE: Use pre-built responses
     if (DEMO_MODE) {
       let responseText: string;
 
@@ -109,20 +62,17 @@ export async function POST(req: Request) {
         case "break":
           responseText = getDemoAttackSimulation(context);
           break;
-
         case "impact":
           responseText = getDemoImpactAnalysis(command.incident || "api key leak", context);
           break;
-
         case "breach":
           responseText = getDemoBreachResponse(command.breachType || ".env leak", context);
           break;
-
         case "chat":
         default:
           responseText = `**BreachSense Demo Mode**
 
-I'm running in demo mode because the AI Gateway is not configured. Here's what you can do:
+I'm running in demo mode. Here's what you can do:
 
 **Available Commands:**
 - \`/break\` - Simulate an attack on the current target
@@ -132,15 +82,45 @@ I'm running in demo mode because the AI Gateway is not configured. Here's what y
 - \`/help\` - Show all available commands
 
 **Try These Examples:**
-- \`/impact api key leak\`
-- \`/breach token exposure\`
-- \`/impact oauth compromise\`
-
-*To enable full AI capabilities, set ENABLE_AI_GATEWAY=true in your environment variables and ensure you have a valid credit card on your Vercel account.*`;
+- \`/break\` - Run attack simulation
+- \`/impact api key leak\` - API key exposure analysis
+- \`/breach token exposure\` - Token breach response plan`;
           break;
       }
 
-      return createDemoStreamResponse(responseText);
+      // Create a proper UI message stream for demo mode
+      return createUIMessageStreamResponse({
+        stream: createUIMessageStream({
+          async execute({ writer }) {
+            const textId = `demo-text-${Date.now()}`;
+            
+            // Start the text block
+            writer.write({
+              type: "text-start",
+              id: textId,
+            });
+
+            // Stream the text character by character for realistic effect
+            const chunkSize = 20;
+            for (let i = 0; i < responseText.length; i += chunkSize) {
+              const chunk = responseText.slice(i, i + chunkSize);
+              writer.write({
+                type: "text-delta",
+                id: textId,
+                delta: chunk,
+              });
+              // Small delay for streaming effect
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+
+            // End the text block
+            writer.write({
+              type: "text-end",
+              id: textId,
+            });
+          },
+        }),
+      });
     }
 
     // PRODUCTION MODE: Use AI Gateway
@@ -191,23 +171,30 @@ I'm running in demo mode because the AI Gateway is not configured. Here's what y
     });
   } catch (error: unknown) {
     console.error("[v0] Chat API error:", error);
-    
-    // If AI Gateway fails, fall back to demo mode response
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    const fallbackText = `**Error Occurred**
 
-${errorMessage.includes("credit card") ? "The AI Gateway requires a valid credit card to be configured on your Vercel account." : `An error occurred: ${errorMessage}`}
+    // If AI Gateway fails, return a demo response
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    return createUIMessageStreamResponse({
+      stream: createUIMessageStream({
+        async execute({ writer }) {
+          const textId = `error-text-${Date.now()}`;
+          const fallbackText = `**Error Occurred**
+
+${errorMessage.includes("credit card") ? "The AI Gateway requires a valid credit card." : `Error: ${errorMessage}`}
 
 **BreachSense is running in Demo Mode!**
 
-You can still use all features with realistic simulated responses:
+Try these commands:
 - \`/break\` - Attack simulation
-- \`/impact <incident>\` - Breach impact analysis  
-- \`/breach <type>\` - Incident response guidance
+- \`/impact api key leak\` - Breach impact analysis
+- \`/breach .env leak\` - Incident response guidance`;
 
-Try running \`/break\` to see the demo attack simulation!`;
-
-    return createDemoStreamResponse(fallbackText);
+          writer.write({ type: "text-start", id: textId });
+          writer.write({ type: "text-delta", id: textId, delta: fallbackText });
+          writer.write({ type: "text-end", id: textId });
+        },
+      }),
+    });
   }
 }

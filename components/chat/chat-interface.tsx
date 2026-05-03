@@ -22,19 +22,7 @@ function getMessageText(message: { parts?: Array<{ type: string; text?: string }
     .join("");
 }
 
-export function ChatInterface() {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [currentTarget, setCurrentTarget] = useState(getContext().target);
-  const [localMessages, setLocalMessages] = useState<Array<{
-    id: string;
-    role: "user" | "assistant";
-    content: string;
-  }>>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: `**Welcome to BreachSense**
+const WELCOME_MESSAGE = `**Welcome to BreachSense**
 
 I'm your AI security agent. I can help you:
 - **Simulate attacks** on your applications
@@ -46,11 +34,27 @@ I'm your AI security agent. I can help you:
 - Use \`/break\` to simulate an attack
 - Use \`/help\` to see all available commands
 
-*Currently using OWASP Juice Shop as the default demo target.*`,
+*Currently using OWASP Juice Shop as the default demo target.*`;
+
+export function ChatInterface() {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [currentTarget, setCurrentTarget] = useState(getContext().target);
+  
+  // Local messages for commands handled client-side (like /target, /help)
+  const [localMessages, setLocalMessages] = useState<Array<{
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+  }>>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: WELCOME_MESSAGE,
     },
   ]);
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
@@ -61,15 +65,15 @@ I'm your AI security agent. I can help you:
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, localMessages, isLoading]);
 
-  // Combine local messages with API messages for display
-  const allMessages = [
-    ...localMessages,
-    ...messages.map((msg) => ({
-      id: msg.id,
-      role: msg.role as "user" | "assistant",
-      content: getMessageText(msg),
-    })),
-  ];
+  // Transform useChat messages to display format
+  const apiMessages = messages.map((msg) => ({
+    id: msg.id,
+    role: msg.role as "user" | "assistant",
+    content: getMessageText(msg),
+  }));
+
+  // Combine local and API messages
+  const allMessages = [...localMessages, ...apiMessages];
 
   const handleSubmit = async (message: string) => {
     const command = parseCommand(message);
@@ -79,58 +83,48 @@ I'm your AI security agent. I can help you:
       const updatedContext = setTarget("default", command.url);
       setCurrentTarget(updatedContext.target);
       
-      // Add user message
-      const userMessage = {
-        id: `user-${Date.now()}`,
-        role: "user" as const,
-        content: message,
-      };
-      
-      // Add assistant response
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant" as const,
-        content: `**Target Registered Successfully**
+      setLocalMessages(prev => [
+        ...prev,
+        {
+          id: `user-${Date.now()}`,
+          role: "user" as const,
+          content: message,
+        },
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant" as const,
+          content: `**Target Registered Successfully**
 
 **URL:** ${updatedContext.target}
 **Detected Type:** ${updatedContext.type === "web" ? "Web Application" : "API Endpoint"}
 **Environment:** ${updatedContext.environment}
 
 You can now use \`/break\` to simulate an attack on this target.`,
-      };
-      
-      setLocalMessages([...localMessages, userMessage, assistantMessage]);
+        },
+      ]);
       return;
     }
     
     // Handle /help command locally
     if (command.type === "help") {
-      const userMessage = {
-        id: `user-${Date.now()}`,
-        role: "user" as const,
-        content: message,
-      };
-      
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant" as const,
-        content: getHelpMessage(),
-      };
-      
-      setLocalMessages([...localMessages, userMessage, assistantMessage]);
+      setLocalMessages(prev => [
+        ...prev,
+        {
+          id: `user-${Date.now()}`,
+          role: "user" as const,
+          content: message,
+        },
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant" as const,
+          content: getHelpMessage(),
+        },
+      ]);
       return;
     }
     
-    // For other commands and messages, use the API
-    // Add user message to local messages for immediate feedback
-    const userMessage = {
-      id: `user-${Date.now()}`,
-      role: "user" as const,
-      content: message,
-    };
-    setLocalMessages([...localMessages, userMessage]);
-    
-    // Send to API
+    // For other commands (/break, /impact, /breach), send to API
+    // The useChat hook handles adding the user message to the messages array
     sendMessage({ text: message });
   };
 
@@ -138,17 +132,18 @@ You can now use \`/break\` to simulate an attack on this target.`,
     const updatedContext = setTarget("default", newTarget);
     setCurrentTarget(updatedContext.target);
     
-    const assistantMessage = {
-      id: `assistant-${Date.now()}`,
-      role: "assistant" as const,
-      content: `**Target Updated**
+    setLocalMessages(prev => [
+      ...prev,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant" as const,
+        content: `**Target Updated**
 
 **URL:** ${updatedContext.target}
 **Detected Type:** ${updatedContext.type === "web" ? "Web Application" : "API Endpoint"}
 **Environment:** ${updatedContext.environment}`,
-    };
-    
-    setLocalMessages([...localMessages, assistantMessage]);
+      },
+    ]);
     setShowSettings(false);
   };
 
@@ -204,11 +199,19 @@ You can now use \`/break\` to simulate an attack on this target.`,
               key={message.id}
               role={message.role}
               content={message.content}
-              isStreaming={isLoading && message.id === allMessages[allMessages.length - 1]?.id && message.role === "assistant"}
+              isStreaming={
+                isLoading && 
+                message.id === allMessages[allMessages.length - 1]?.id && 
+                message.role === "assistant"
+              }
             />
           ))}
           
-          {isLoading && allMessages[allMessages.length - 1]?.role === "user" && (
+          {/* Loading indicator when waiting for response */}
+          {isLoading && (
+            apiMessages.length === 0 || 
+            apiMessages[apiMessages.length - 1]?.role === "user"
+          ) && (
             <div className="flex items-center gap-2 text-muted-foreground p-4">
               <div className="flex space-x-1">
                 <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
