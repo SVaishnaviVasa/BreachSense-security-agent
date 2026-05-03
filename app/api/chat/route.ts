@@ -1,112 +1,127 @@
-import {
-  UIMessage,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-} from "ai";
-import { parseCommand } from "@/lib/ai/agent";
+import { streamText, createUIMessageStream, createUIMessageStreamResponse } from "ai";
+import { 
+  xai, 
+  SYSTEM_PROMPT, 
+  parseCommand, 
+  getHelpMessage,
+  createBreakPrompt,
+  createImpactPrompt,
+  createBreachPrompt,
+} from "@/lib/ai/agent";
 import { getContext, setTarget } from "@/lib/context/store";
-import {
-  getDemoAttackSimulation,
-  getDemoImpactAnalysis,
-  getDemoBreachResponse,
-  getDemoHelpMessage,
-  getDemoGeneralResponse,
-} from "@/lib/ai/demo-responses";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
-// Helper to extract text from UIMessage
-function getMessageText(message: UIMessage): string {
-  if (!message.parts || !Array.isArray(message.parts)) return "";
-  return message.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string")
-    .map((p) => p.text)
-    .join("");
+// Helper to create a simple streamed response
+function createStreamedResponse(text: string) {
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      async execute({ writer }) {
+        const textId = `response-${Date.now()}`;
+        writer.write({ type: "text-start", id: textId });
+        
+        // Stream in chunks
+        const chunkSize = 20;
+        for (let i = 0; i < text.length; i += chunkSize) {
+          writer.write({ type: "text-delta", id: textId, delta: text.slice(i, i + chunkSize) });
+          await new Promise(r => setTimeout(r, 5));
+        }
+        
+        writer.write({ type: "text-end", id: textId });
+      },
+    }),
+  });
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const messages: UIMessage[] = body.messages;
+    const messages = body.messages || [];
     const targetFromClient: string | undefined = body.target;
 
-    if (!messages || messages.length === 0) {
-      return new Response("No messages provided", { status: 400 });
-    }
-
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.role !== "user") {
-      return new Response("No user message provided", { status: 400 });
-    }
-
-    const lastMessageText = getMessageText(lastMessage);
-    const command = parseCommand(lastMessageText);
-    
-    // Use target from client if provided, otherwise use server context
-    let context = getContext("default");
+    // Update target if provided
     if (targetFromClient) {
       setTarget("default", targetFromClient);
-      context = getContext("default");
     }
 
-    // Get response based on command
-    let responseText: string;
-
-    switch (command.type) {
-      case "break":
-        responseText = getDemoAttackSimulation(context);
-        break;
-      case "impact":
-        responseText = getDemoImpactAnalysis(command.incident || "api key leak", context);
-        break;
-      case "breach":
-        responseText = getDemoBreachResponse(command.breachType || ".env leak", context);
-        break;
-      case "help":
-        responseText = getDemoHelpMessage();
-        break;
-      case "target":
-        if (command.url) {
-          setTarget("default", command.url);
-        }
-        responseText = `Target: ${command.url || context.target}`;
-        break;
-      case "chat":
-      default:
-        responseText = getDemoGeneralResponse(lastMessageText, context);
-        break;
+    const context = getContext("default");
+    
+    // Get last user message
+    let lastUserMessage = "";
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.parts && Array.isArray(lastMsg.parts)) {
+        lastUserMessage = lastMsg.parts
+          .filter((p: { type: string; text?: string }) => p.type === "text")
+          .map((p: { text: string }) => p.text)
+          .join("");
+      } else if (lastMsg.content) {
+        lastUserMessage = lastMsg.content;
+      }
     }
 
-    // Stream demo response
+    const command = parseCommand(lastUserMessage);
+
+    // Handle /help locally (no AI needed)
+    if (command.type === "help") {
+      return createStreamedResponse(getHelpMessage());
+    }
+
+    // Handle /target locally (no AI needed)
+    if (command.type === "target" && command.url) {
+      setTarget("default", command.url);
+      return createStreamedResponse(`## Target Updated\n\n**New Target:** \`${command.url}\`\n\nNow you can use:\n- \`/break\` - Analyze this target for vulnerabilities\n- \`/impact <incident>\` - Check how a breach affects this target\n- \`/breach <type>\` - Get incident response for this target`);
+    }
+
+    // Build the prompt based on command type
+    let userPrompt = lastUserMessage;
+    
+    if (command.type === "break") {
+      userPrompt = createBreakPrompt(context.target);
+    } else if (command.type === "impact") {
+      userPrompt = createImpactPrompt(context.target, command.incident || "security incident");
+    } else if (command.type === "breach") {
+      userPrompt = createBreachPrompt(context.target, command.breachType || "data breach");
+    }
+
+    // Use Grok AI for analysis
+    const result = streamText({
+      model: xai("grok-2-1212"),
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
+    });
+
+    // Convert to UI message stream response
     return createUIMessageStreamResponse({
       stream: createUIMessageStream({
         async execute({ writer }) {
-          const textId = `response-${Date.now()}`;
+          const textId = `ai-${Date.now()}`;
           writer.write({ type: "text-start", id: textId });
-
-          // Stream in chunks for realistic effect
-          const chunkSize = 15;
-          for (let i = 0; i < responseText.length; i += chunkSize) {
-            const chunk = responseText.slice(i, i + chunkSize);
+          
+          const textStream = result.textStream;
+          for await (const chunk of textStream) {
             writer.write({ type: "text-delta", id: textId, delta: chunk });
-            await new Promise((resolve) => setTimeout(resolve, 8));
           }
-
+          
           writer.write({ type: "text-end", id: textId });
         },
       }),
     });
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("[v0] Chat API error:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    
     return createUIMessageStreamResponse({
       stream: createUIMessageStream({
         async execute({ writer }) {
           const textId = `error-${Date.now()}`;
-          const fallbackText = `**Error Processing Request**\n\n${errorMessage}\n\nTry: \`/break\`, \`/help\`, or \`/target <url>\``;
           writer.write({ type: "text-start", id: textId });
-          writer.write({ type: "text-delta", id: textId, delta: fallbackText });
+          writer.write({ type: "text-delta", id: textId, delta: `**Error:** ${errorMsg}\n\nPlease try again or use \`/help\` for available commands.` });
           writer.write({ type: "text-end", id: textId });
         },
       }),
