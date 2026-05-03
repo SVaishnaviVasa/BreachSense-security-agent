@@ -8,10 +8,8 @@ import {
 } from "./prompts";
 import { getContext, setTarget, type ProjectContext } from "@/lib/context/store";
 
-// Using Google Gemini directly
-export const geminiModel = google("gemini-2.0-flash-001", {
-  apiKey: process.env.GOOGLE_AI_API_KEY,
-});
+// Using Google Gemini directly - reads GOOGLE_GENERATIVE_AI_API_KEY automatically
+export const geminiModel = google("gemini-2.0-flash-001");
 
 // Re-export SYSTEM_PROMPT for use in API routes
 export const SYSTEM_PROMPT = _SYSTEM_PROMPT;

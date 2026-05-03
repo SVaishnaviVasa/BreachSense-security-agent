@@ -26,7 +26,7 @@ import {
 export const maxDuration = 30;
 
 // Use real AI when Google API key is available, otherwise demo mode
-const DEMO_MODE = !process.env.GOOGLE_AI_API_KEY;
+const DEMO_MODE = !process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
 // Helper to extract text from UIMessage
 function getMessageText(message: UIMessage): string {
