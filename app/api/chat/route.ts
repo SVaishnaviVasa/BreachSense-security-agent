@@ -2,10 +2,8 @@ import {
   UIMessage,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  streamText,
-  convertToModelMessages,
 } from "ai";
-import { parseCommand, grokModel, SYSTEM_PROMPT } from "@/lib/ai/agent";
+import { parseCommand } from "@/lib/ai/agent";
 import { getContext, setTarget } from "@/lib/context/store";
 import {
   getDemoAttackSimulation,
@@ -16,9 +14,6 @@ import {
 } from "@/lib/ai/demo-responses";
 
 export const maxDuration = 30;
-
-// Grok AI is always available now
-const USE_AI = true;
 
 // Helper to extract text from UIMessage
 function getMessageText(message: UIMessage): string {
@@ -46,37 +41,7 @@ export async function POST(req: Request) {
     const command = parseCommand(lastMessageText);
     const context = getContext("default");
 
-    // Use AI if available for general chat
-    if (USE_AI && grokModel && command.type === "chat") {
-      const conversationMessages = await convertToModelMessages(messages);
-      const result = streamText({
-        model: grokModel,
-        system: SYSTEM_PROMPT,
-        messages: conversationMessages,
-      });
-
-      return result.toUIMessageStreamResponse();
-    }
-
-    // Use AI for command-based queries if available
-    if (USE_AI && grokModel && ["break", "impact", "breach"].includes(command.type)) {
-      const systemPrompt =
-        command.type === "break"
-          ? `${SYSTEM_PROMPT}\n\nThe user wants an attack simulation on ${context.target}. Provide a detailed, realistic attack chain with specific payloads and vulnerabilities.`
-          : command.type === "impact"
-            ? `${SYSTEM_PROMPT}\n\nAnalyze how this breach impacts ${context.target}: ${command.incident || "API key leak"}`
-            : `${SYSTEM_PROMPT}\n\nProvide incident response guidance for ${command.breachType || "internal breach"} affecting ${context.target}`;
-
-      const result = streamText({
-        model: grokModel,
-        system: systemPrompt,
-        messages: [{ role: "user", content: lastMessageText }],
-      });
-
-      return result.toUIMessageStreamResponse();
-    }
-
-    // Fall back to demo mode
+    // Get response based on command
     let responseText: string;
 
     switch (command.type) {

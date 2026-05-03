@@ -6,14 +6,6 @@ import {
 } from "./prompts";
 import { getContext, setTarget, type ProjectContext } from "@/lib/context/store";
 import { getDemoHelpMessage } from "./demo-responses";
-import { createXai } from "@ai-sdk/xai";
-
-// Initialize Grok AI model
-const XAI_API_KEY = "xai-HSfIe7jmN6zVanDWTqk0XAF4SIfWnJwCjtAhRof0ErbnPFiIBZVuMkDaRTYm1JzX7QfuTz9GBuAJ9Ee0";
-
-export const grokModel = createXai({
-  apiKey: XAI_API_KEY,
-});
 
 // Re-export SYSTEM_PROMPT for use in API routes
 export const SYSTEM_PROMPT = _SYSTEM_PROMPT;
