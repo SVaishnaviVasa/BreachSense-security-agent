@@ -841,3 +841,176 @@ Priority 4: User sessions (force re-auth)
 - What worked well
 - What needs improvement`;
 }
+
+export function getDemoHelpMessage(): string {
+  return `## BreachSense - AI Security Agent
+
+Welcome to BreachSense! I help you analyze security vulnerabilities, simulate attacks, and respond to breaches.
+
+---
+
+### Available Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| \`/target <url>\` | Set target application | \`/target https://myapp.vercel.app\` |
+| \`/break\` | Simulate attack on target | \`/break\` |
+| \`/impact <incident>\` | Analyze breach impact | \`/impact vercel breach\` |
+| \`/breach <type>\` | Get incident response plan | \`/breach .env leak\` |
+| \`/help\` | Show this help message | \`/help\` |
+
+---
+
+### Impact Analysis Examples
+
+Analyze how external breaches affect YOUR system:
+
+- \`/impact vercel breach\` - Deployment platform compromise
+- \`/impact api key leak\` - Exposed API credentials
+- \`/impact oauth compromise\` - OAuth token exposure
+- \`/impact database breach\` - Database server breach
+- \`/impact npm supply chain\` - Dependency compromise
+
+---
+
+### Breach Response Examples
+
+Get incident response guidance:
+
+- \`/breach .env leak\` - Environment file exposed
+- \`/breach token exposure\` - Auth tokens compromised
+- \`/breach database leak\` - Database credentials exposed
+- \`/breach admin access\` - Unauthorized admin access
+
+---
+
+### Quick Start
+
+1. Set your target: \`/target https://your-app.com\`
+2. Run attack simulation: \`/break\`
+3. Analyze breach impact: \`/impact api key leak\`
+
+Click the gear icon in the header to configure your target application.`;
+}
+
+export function getDemoGeneralResponse(query: string, context: ProjectContext): string {
+  const domain = extractDomain(context.target);
+  const techStack = inferTechStack(context.target);
+  const lowerQuery = query.toLowerCase();
+  
+  // Check for security-related keywords
+  if (lowerQuery.includes("vulnerability") || lowerQuery.includes("vuln")) {
+    return `## Vulnerability Assessment for ${domain}
+
+Based on the target **${context.target}**, here are common vulnerability categories to check:
+
+### Web Application Vulnerabilities
+- **Injection Attacks** - SQL, NoSQL, Command injection
+- **Broken Authentication** - Weak passwords, session hijacking
+- **Sensitive Data Exposure** - Unencrypted data, PII leaks
+- **XML External Entities (XXE)** - XML parser vulnerabilities
+- **Broken Access Control** - Privilege escalation, IDOR
+- **Security Misconfiguration** - Default settings, verbose errors
+- **Cross-Site Scripting (XSS)** - Reflected, Stored, DOM-based
+- **Insecure Deserialization** - Object manipulation
+- **Using Components with Known Vulnerabilities** - Outdated dependencies
+- **Insufficient Logging** - Missing audit trails
+
+**Recommended Action:** Run \`/break\` to simulate an attack and identify specific vulnerabilities.`;
+  }
+  
+  if (lowerQuery.includes("secure") || lowerQuery.includes("harden") || lowerQuery.includes("protect")) {
+    return `## Security Hardening Recommendations for ${domain}
+
+### Detected Technology Stack
+${techStack.map(t => `- ${t}`).join("\n")}
+
+### Immediate Security Actions
+
+**1. Authentication & Access**
+- Implement MFA for all admin accounts
+- Use secure session management
+- Apply principle of least privilege
+
+**2. Data Protection**
+- Encrypt data at rest and in transit
+- Implement proper key management
+- Regular backup verification
+
+**3. Infrastructure**
+- Enable WAF protection
+- Configure security headers
+- Regular security patches
+
+**4. Monitoring**
+- Enable comprehensive logging
+- Set up intrusion detection
+- Configure alerting for anomalies
+
+**5. Code Security**
+- Regular dependency updates
+- Static code analysis
+- Security code reviews
+
+Run \`/break\` to test your current security posture.`;
+  }
+  
+  if (lowerQuery.includes("attack") || lowerQuery.includes("hack") || lowerQuery.includes("penetration")) {
+    return `## Attack Surface Analysis for ${domain}
+
+To simulate an attack on your target, use the \`/break\` command.
+
+### Common Attack Vectors
+
+**External Attacks:**
+- Network scanning and enumeration
+- Web application attacks (OWASP Top 10)
+- API endpoint abuse
+- Social engineering
+
+**Internal Threats:**
+- Insider access abuse
+- Credential theft
+- Data exfiltration
+- Privilege escalation
+
+**Supply Chain:**
+- Compromised dependencies
+- Third-party service breaches
+- CI/CD pipeline attacks
+
+**Ready to simulate?** Run \`/break\` now.`;
+  }
+  
+  // Default response
+  return `## BreachSense Response
+
+**Current Target:** ${context.target}
+**Domain:** ${domain}
+**Detected Stack:** ${techStack.join(", ")}
+
+---
+
+I understand you're asking about: "${query}"
+
+Here's what I can help you with:
+
+### Security Analysis Commands
+
+| Command | What it does |
+|---------|-------------|
+| \`/break\` | Simulate attack on ${domain} |
+| \`/impact <breach>\` | Analyze how a breach affects your system |
+| \`/breach <type>\` | Get incident response guidance |
+| \`/help\` | Show all available commands |
+
+### Example Queries
+
+- \`/impact vercel breach\` - How would a Vercel breach affect ${domain}?
+- \`/breach .env leak\` - What to do if .env file is leaked?
+- \`/break\` - Simulate attack on current target
+
+---
+
+**Tip:** Click the gear icon to change your target application, or use \`/target <url>\`.`;
+}
