@@ -79,7 +79,17 @@ export function ChatInterface() {
   ]);
 
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    transport: new DefaultChatTransport({ 
+      api: "/api/chat",
+      // Pass the current target with each request
+      prepareSendMessagesRequest: ({ id, messages: msgs }) => ({
+        body: {
+          messages: msgs,
+          id,
+          target: currentTarget,
+        },
+      }),
+    }),
   });
 
   const isLoading = status === "streaming" || status === "submitted";

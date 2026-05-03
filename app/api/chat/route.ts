@@ -26,7 +26,9 @@ function getMessageText(message: UIMessage): string {
 
 export async function POST(req: Request) {
   try {
-    const { messages }: { messages: UIMessage[] } = await req.json();
+    const body = await req.json();
+    const messages: UIMessage[] = body.messages;
+    const targetFromClient: string | undefined = body.target;
 
     if (!messages || messages.length === 0) {
       return new Response("No messages provided", { status: 400 });
@@ -39,7 +41,13 @@ export async function POST(req: Request) {
 
     const lastMessageText = getMessageText(lastMessage);
     const command = parseCommand(lastMessageText);
-    const context = getContext("default");
+    
+    // Use target from client if provided, otherwise use server context
+    let context = getContext("default");
+    if (targetFromClient) {
+      setTarget("default", targetFromClient);
+      context = getContext("default");
+    }
 
     // Get response based on command
     let responseText: string;
