@@ -7,7 +7,7 @@ import {
   createUIMessageStreamResponse,
 } from "ai";
 import {
-  MODEL,
+  geminiModel,
   SYSTEM_PROMPT,
   parseCommand,
 } from "@/lib/ai/agent";
@@ -25,8 +25,8 @@ import {
 
 export const maxDuration = 30;
 
-// Demo mode is enabled by default when ENABLE_AI_GATEWAY is not set to "true"
-const DEMO_MODE = process.env.ENABLE_AI_GATEWAY !== "true";
+// Use real AI when Google API key is available, otherwise demo mode
+const DEMO_MODE = !process.env.GOOGLE_AI_API_KEY;
 
 // Helper to extract text from UIMessage
 function getMessageText(message: UIMessage): string {
@@ -129,7 +129,7 @@ I'm running in demo mode. Here's what you can do:
     switch (command.type) {
       case "break":
         result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createAttackSimulationPrompt(context),
           abortSignal: req.signal,
@@ -138,7 +138,7 @@ I'm running in demo mode. Here's what you can do:
 
       case "impact":
         result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createImpactAnalysisPrompt(command.incident || "api key leak", context),
           abortSignal: req.signal,
@@ -147,7 +147,7 @@ I'm running in demo mode. Here's what you can do:
 
       case "breach":
         result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createBreachResponsePrompt(command.breachType || ".env leak", context),
           abortSignal: req.signal,
@@ -158,7 +158,7 @@ I'm running in demo mode. Here's what you can do:
       default:
         const modelMessages = await convertToModelMessages(messages);
         result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           messages: modelMessages,
           abortSignal: req.signal,

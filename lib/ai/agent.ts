@@ -1,4 +1,5 @@
 import { streamText } from "ai";
+import { google } from "@ai-sdk/google";
 import {
   SYSTEM_PROMPT as _SYSTEM_PROMPT,
   createAttackSimulationPrompt,
@@ -7,8 +8,10 @@ import {
 } from "./prompts";
 import { getContext, setTarget, type ProjectContext } from "@/lib/context/store";
 
-// Using Vercel AI Gateway - no provider packages needed
-export const MODEL = "anthropic/claude-sonnet-4-20250514";
+// Using Google Gemini directly
+export const geminiModel = google("gemini-2.0-flash-001", {
+  apiKey: process.env.GOOGLE_AI_API_KEY,
+});
 
 // Re-export SYSTEM_PROMPT for use in API routes
 export const SYSTEM_PROMPT = _SYSTEM_PROMPT;
@@ -112,7 +115,7 @@ You can now use \`/break\` to simulate an attack on this target.`,
       return {
         type: "stream" as const,
         stream: streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createAttackSimulationPrompt(context),
         }),
@@ -124,7 +127,7 @@ You can now use \`/break\` to simulate an attack on this target.`,
       return {
         type: "stream" as const,
         stream: streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createImpactAnalysisPrompt(incident, context),
         }),
@@ -136,7 +139,7 @@ You can now use \`/break\` to simulate an attack on this target.`,
       return {
         type: "stream" as const,
         stream: streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createBreachResponsePrompt(breachType, context),
         }),
@@ -154,7 +157,7 @@ You can now use \`/break\` to simulate an attack on this target.`,
       return {
         type: "stream" as const,
         stream: streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: `User question about security: ${command.message}
 
@@ -178,7 +181,7 @@ export function createAgentStreamFromMessages(
   const lastMessage = messages[messages.length - 1];
   if (!lastMessage || lastMessage.role !== "user") {
     return streamText({
-      model: MODEL,
+      model: geminiModel,
       system: SYSTEM_PROMPT,
       messages,
     });
@@ -190,7 +193,7 @@ export function createAgentStreamFromMessages(
   // For commands that need AI responses
   if (command.type === "break") {
     return streamText({
-      model: MODEL,
+      model: geminiModel,
       system: SYSTEM_PROMPT,
       prompt: createAttackSimulationPrompt(context),
     });
@@ -198,7 +201,7 @@ export function createAgentStreamFromMessages(
 
   if (command.type === "impact") {
     return streamText({
-      model: MODEL,
+      model: geminiModel,
       system: SYSTEM_PROMPT,
       prompt: createImpactAnalysisPrompt(command.incident || "api key leak", context),
     });
@@ -206,7 +209,7 @@ export function createAgentStreamFromMessages(
 
   if (command.type === "breach") {
     return streamText({
-      model: MODEL,
+      model: geminiModel,
       system: SYSTEM_PROMPT,
       prompt: createBreachResponsePrompt(command.breachType || ".env leak", context),
     });
@@ -214,7 +217,7 @@ export function createAgentStreamFromMessages(
 
   // For regular chat, use the full message history
   return streamText({
-    model: MODEL,
+    model: geminiModel,
     system: SYSTEM_PROMPT,
     messages,
   });
