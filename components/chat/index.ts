@@ -4,3 +4,4 @@ export { ChatInput } from "./chat-input";
 export { CommandSuggestions } from "./command-suggestions";
 export { StatusBadge } from "./status-badge";
 export { QuickActions } from "./quick-actions";
+export { TargetSettings } from "./target-settings";

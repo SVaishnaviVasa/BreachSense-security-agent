@@ -1,6 +1,6 @@
 import { streamText } from "ai";
 import {
-  SYSTEM_PROMPT,
+  SYSTEM_PROMPT as _SYSTEM_PROMPT,
   createAttackSimulationPrompt,
   createImpactAnalysisPrompt,
   createBreachResponsePrompt,
@@ -9,6 +9,9 @@ import { getContext, setTarget, type ProjectContext } from "@/lib/context/store"
 
 // Using Vercel AI Gateway - no provider packages needed
 export const MODEL = "anthropic/claude-sonnet-4-20250514";
+
+// Re-export SYSTEM_PROMPT for use in API routes
+export const SYSTEM_PROMPT = _SYSTEM_PROMPT;
 
 export type Command = 
   | { type: "target"; url: string }

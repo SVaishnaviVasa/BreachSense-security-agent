@@ -1,25 +1,40 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef } from "react";
+import { DefaultChatTransport } from "ai";
+import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { StatusBadge } from "./status-badge";
 import { QuickActions } from "./quick-actions";
-import { Shield, Terminal, AlertCircle } from "lucide-react";
+import { TargetSettings } from "./target-settings";
+import { Shield, Terminal, AlertCircle, Settings } from "lucide-react";
 import { parseCommand, getHelpMessage } from "@/lib/ai/agent";
 import { setTarget, getContext } from "@/lib/context/store";
+import { Button } from "@/components/ui/button";
+
+// Helper to extract text from UIMessage parts
+function getMessageText(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!message.parts || !Array.isArray(message.parts)) return "";
+  return message.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string")
+    .map((p) => p.text)
+    .join("");
+}
 
 export function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const { messages, append, isLoading, error, setMessages } = useChat({
-    api: "/api/chat",
-    initialMessages: [
-      {
-        id: "welcome",
-        role: "assistant",
-        content: `**Welcome to BreachSense**
+  const [showSettings, setShowSettings] = useState(false);
+  const [currentTarget, setCurrentTarget] = useState(getContext().target);
+  const [localMessages, setLocalMessages] = useState<Array<{
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+  }>>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: `**Welcome to BreachSense**
 
 I'm your AI security agent. I can help you:
 - **Simulate attacks** on your applications
@@ -32,14 +47,29 @@ I'm your AI security agent. I can help you:
 - Use \`/help\` to see all available commands
 
 *Currently using OWASP Juice Shop as the default demo target.*`,
-      },
-    ],
+    },
+  ]);
+
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
+
+  const isLoading = status === "streaming" || status === "submitted";
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, localMessages, isLoading]);
+
+  // Combine local messages with API messages for display
+  const allMessages = [
+    ...localMessages,
+    ...messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role as "user" | "assistant",
+      content: getMessageText(msg),
+    })),
+  ];
 
   const handleSubmit = async (message: string) => {
     const command = parseCommand(message);
@@ -47,6 +77,7 @@ I'm your AI security agent. I can help you:
     // Handle /target command locally for immediate feedback
     if (command.type === "target" && command.url) {
       const updatedContext = setTarget("default", command.url);
+      setCurrentTarget(updatedContext.target);
       
       // Add user message
       const userMessage = {
@@ -68,7 +99,7 @@ I'm your AI security agent. I can help you:
 You can now use \`/break\` to simulate an attack on this target.`,
       };
       
-      setMessages([...messages, userMessage, assistantMessage]);
+      setLocalMessages([...localMessages, userMessage, assistantMessage]);
       return;
     }
     
@@ -86,15 +117,39 @@ You can now use \`/break\` to simulate an attack on this target.`,
         content: getHelpMessage(),
       };
       
-      setMessages([...messages, userMessage, assistantMessage]);
+      setLocalMessages([...localMessages, userMessage, assistantMessage]);
       return;
     }
     
     // For other commands and messages, use the API
-    await append({
-      role: "user",
+    // Add user message to local messages for immediate feedback
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      role: "user" as const,
       content: message,
-    });
+    };
+    setLocalMessages([...localMessages, userMessage]);
+    
+    // Send to API
+    sendMessage({ text: message });
+  };
+
+  const handleTargetChange = (newTarget: string) => {
+    const updatedContext = setTarget("default", newTarget);
+    setCurrentTarget(updatedContext.target);
+    
+    const assistantMessage = {
+      id: `assistant-${Date.now()}`,
+      role: "assistant" as const,
+      content: `**Target Updated**
+
+**URL:** ${updatedContext.target}
+**Detected Type:** ${updatedContext.type === "web" ? "Web Application" : "API Endpoint"}
+**Environment:** ${updatedContext.environment}`,
+    };
+    
+    setLocalMessages([...localMessages, assistantMessage]);
+    setShowSettings(false);
   };
 
   return (
@@ -110,31 +165,50 @@ You can now use \`/break\` to simulate an attack on this target.`,
             <p className="text-xs text-muted-foreground">AI Security Agent</p>
           </div>
         </div>
-        <StatusBadge status="demo" platform="web" />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(!showSettings)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
+          <StatusBadge status="demo" platform="web" />
+        </div>
       </header>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <TargetSettings
+          currentTarget={currentTarget}
+          onTargetChange={handleTargetChange}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       {/* Target Context Banner */}
       <div className="flex items-center gap-2 px-4 py-2 bg-secondary/30 border-b border-border">
         <Terminal className="h-4 w-4 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">
           Current target:{" "}
-          <code className="text-primary">{getContext().target}</code>
+          <code className="text-primary">{currentTarget}</code>
         </span>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-3xl mx-auto space-y-4">
-          {messages.map((message) => (
+          {allMessages.map((message) => (
             <ChatMessage
               key={message.id}
-              role={message.role as "user" | "assistant"}
+              role={message.role}
               content={message.content}
-              isStreaming={isLoading && message.id === messages[messages.length - 1]?.id && message.role === "assistant"}
+              isStreaming={isLoading && message.id === allMessages[allMessages.length - 1]?.id && message.role === "assistant"}
             />
           ))}
           
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
+          {isLoading && allMessages[allMessages.length - 1]?.role === "user" && (
             <div className="flex items-center gap-2 text-muted-foreground p-4">
               <div className="flex space-x-1">
                 <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -145,10 +219,10 @@ You can now use \`/break\` to simulate an attack on this target.`,
             </div>
           )}
 
-          {error && (
+          {status === "error" && (
             <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
               <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">Error: {error.message}</span>
+              <span className="text-sm">An error occurred. Please try again.</span>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -158,7 +232,7 @@ You can now use \`/break\` to simulate an attack on this target.`,
       {/* Input */}
       <div className="border-t border-border p-4 bg-card">
         <div className="max-w-3xl mx-auto space-y-3">
-          {messages.length <= 1 && (
+          {allMessages.length <= 1 && (
             <div className="pb-2">
               <p className="text-xs text-muted-foreground mb-2">Quick actions:</p>
               <QuickActions onAction={handleSubmit} disabled={isLoading} />

@@ -1,66 +1,42 @@
-import { streamText } from "ai";
+import { streamText, convertToModelMessages, UIMessage, consumeStream } from "ai";
 import {
   MODEL,
   SYSTEM_PROMPT,
   parseCommand,
-  getHelpMessage,
 } from "@/lib/ai/agent";
 import {
   createAttackSimulationPrompt,
   createImpactAnalysisPrompt,
   createBreachResponsePrompt,
 } from "@/lib/ai/prompts";
-import { getContext, setTarget } from "@/lib/context/store";
+import { getContext } from "@/lib/context/store";
+
+export const maxDuration = 30;
+
+// Helper to extract text from UIMessage
+function getMessageText(message: UIMessage): string {
+  if (!message.parts || !Array.isArray(message.parts)) return "";
+  return message.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string")
+    .map((p) => p.text)
+    .join("");
+}
 
 export async function POST(req: Request) {
-  const { messages, sessionId = "default" } = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
   
+  if (!messages || messages.length === 0) {
+    return new Response("No messages provided", { status: 400 });
+  }
+
   const lastMessage = messages[messages.length - 1];
   if (!lastMessage || lastMessage.role !== "user") {
     return new Response("No user message provided", { status: 400 });
   }
 
-  const command = parseCommand(lastMessage.content);
-  const context = getContext(sessionId);
-
-  // Handle non-streaming commands
-  if (command.type === "target") {
-    if (!command.url) {
-      return new Response(
-        JSON.stringify({
-          role: "assistant",
-          content: "Please provide a URL. Example: `/target https://example.com`",
-        }),
-        { headers: { "Content-Type": "application/json" } }
-      );
-    }
-    const updatedContext = setTarget(sessionId, command.url);
-    const responseText = `**Target Registered Successfully**
-
-**URL:** ${updatedContext.target}
-**Detected Type:** ${updatedContext.type === "web" ? "Web Application" : "API Endpoint"}
-**Environment:** ${updatedContext.environment}
-
-You can now use \`/break\` to simulate an attack on this target.`;
-    
-    // Return as a simple text stream for consistency
-    const result = streamText({
-      model: MODEL,
-      system: "You are a helpful assistant.",
-      prompt: `Respond with exactly this text, no changes: ${responseText}`,
-    });
-    return result.toDataStreamResponse();
-  }
-
-  if (command.type === "help") {
-    const helpText = getHelpMessage();
-    const result = streamText({
-      model: MODEL,
-      system: "You are a helpful assistant.",
-      prompt: `Respond with exactly this text, no changes:\n\n${helpText}`,
-    });
-    return result.toDataStreamResponse();
-  }
+  const lastMessageText = getMessageText(lastMessage);
+  const command = parseCommand(lastMessageText);
+  const context = getContext("default");
 
   // Handle streaming commands
   let result;
@@ -71,6 +47,7 @@ You can now use \`/break\` to simulate an attack on this target.`;
         model: MODEL,
         system: SYSTEM_PROMPT,
         prompt: createAttackSimulationPrompt(context),
+        abortSignal: req.signal,
       });
       break;
 
@@ -79,6 +56,7 @@ You can now use \`/break\` to simulate an attack on this target.`;
         model: MODEL,
         system: SYSTEM_PROMPT,
         prompt: createImpactAnalysisPrompt(command.incident || "api key leak", context),
+        abortSignal: req.signal,
       });
       break;
 
@@ -87,21 +65,24 @@ You can now use \`/break\` to simulate an attack on this target.`;
         model: MODEL,
         system: SYSTEM_PROMPT,
         prompt: createBreachResponsePrompt(command.breachType || ".env leak", context),
+        abortSignal: req.signal,
       });
       break;
 
     case "chat":
     default:
+      // Convert UIMessages to model messages for general chat
+      const modelMessages = await convertToModelMessages(messages);
       result = streamText({
         model: MODEL,
         system: SYSTEM_PROMPT,
-        messages: messages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        messages: modelMessages,
+        abortSignal: req.signal,
       });
       break;
   }
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse({
+    consumeSseStream: consumeStream,
+  });
 }
