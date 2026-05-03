@@ -1,120 +1,129 @@
-import { verifyKey } from "discord-interactions";
+import { createHmac } from "crypto";
 import { getContext, setTarget } from "@/lib/context/store";
-import { parseCommand } from "@/lib/ai/agent";
 import {
   getDemoAttackSimulation,
   getDemoImpactAnalysis,
   getDemoBreachResponse,
-  getDemoGeneralResponse,
   getDemoHelpMessage,
 } from "@/lib/ai/demo-responses";
 
 const DISCORD_PUBLIC_KEY = "392ed7caf36960470ac1b672ea38711562a3a8251ad61d1f0431f17acf5f9652";
-const DISCORD_BOT_TOKEN = "MTUwMDQwMDM3MjE5MDI4MTkyOQ.Gwytui._3wlng4uZuw_aSyk61TlFB88klrouyifGLQs2g";
 
-interface DiscordMessage {
-  type: number;
-  token?: string;
-  interaction_token?: string;
-  data?: Record<string, unknown>;
+// Manual signature verification for Discord
+function verifyDiscordSignature(
+  body: string,
+  signature: string,
+  timestamp: string
+): boolean {
+  try {
+    const message = timestamp + body;
+    const hash = createHmac("sha256", Buffer.from(DISCORD_PUBLIC_KEY, "hex"))
+      .update(message)
+      .digest("hex");
+    return hash === signature;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(req: Request) {
-  // Verify Discord signature
-  const signature = req.headers.get("x-signature-ed25519");
-  const timestamp = req.headers.get("x-signature-timestamp");
+  try {
+    const signature = req.headers.get("x-signature-ed25519");
+    const timestamp = req.headers.get("x-signature-timestamp");
 
-  if (!signature || !timestamp) {
-    return new Response("Missing signature headers", { status: 401 });
-  }
+    if (!signature || !timestamp) {
+      console.log("[Discord] Missing signature or timestamp");
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const body = await req.text();
+    const body = await req.text();
 
-  if (!DISCORD_PUBLIC_KEY) {
-    console.error("Discord public key not configured");
-    return new Response("Discord not configured", { status: 500 });
-  }
+    // Verify signature
+    if (!verifyDiscordSignature(body, signature, timestamp)) {
+      console.log("[Discord] Invalid signature");
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const isValidRequest = verifyKey(body, signature, timestamp, DISCORD_PUBLIC_KEY);
+    const interaction = JSON.parse(body);
 
-  if (!isValidRequest) {
-    return new Response("Invalid request signature", { status: 401 });
-  }
+    // Handle PING - this is what Discord sends for verification
+    if (interaction.type === 1) {
+      console.log("[Discord] PING received - responding with PONG");
+      return new Response(JSON.stringify({ type: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  const message: DiscordMessage = JSON.parse(body);
+    // Handle slash commands
+    if (interaction.type === 2) {
+      const commandName = interaction.data?.name || "";
+      const options = interaction.data?.options || [];
+      const userId = interaction.member?.user?.id || interaction.user?.id || "default";
 
-  // Handle PING
-  if (message.type === 1) {
-    return new Response(JSON.stringify({ type: 1 }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+      console.log(`[Discord] Command: ${commandName} from ${userId}`);
 
-  // Handle APPLICATION_COMMAND
-  if (message.type === 2) {
-    const interaction = message as DiscordMessage & {
-      data: {
-        name: string;
-        options?: Array<{ name: string; value: string }>;
-      };
-    };
-    const command = interaction.data?.name || "";
-    const options = interaction.data?.options || [];
+      const context = getContext(userId);
+      let response = "";
 
-    const sessionId = (message as any).member?.user?.id || "default";
-    const context = getContext(sessionId);
-
-    let response = "";
-
-    try {
-      switch (command) {
+      switch (commandName) {
         case "break":
           response = getDemoAttackSimulation(context);
           break;
+
         case "impact": {
-          const incident = options.find((o) => o.name === "incident")?.value || "api key leak";
-          response = getDemoImpactAnalysis(incident as string, context);
+          const incident =
+            options.find((o: any) => o.name === "incident")?.value || "api key leak";
+          response = getDemoImpactAnalysis(incident, context);
           break;
         }
+
         case "breach": {
-          const breachType = options.find((o) => o.name === "type")?.value || ".env leak";
-          response = getDemoBreachResponse(breachType as string, context);
+          const breachType = options.find((o: any) => o.name === "type")?.value || ".env leak";
+          response = getDemoBreachResponse(breachType, context);
           break;
         }
+
         case "target": {
-          const url = options.find((o) => o.name === "url")?.value;
-          if (url) {
-            setTarget(sessionId, url as string);
-            response = `Target updated to: **${url}**`;
+          const url = options.find((o: any) => o.name === "url")?.value;
+          if (url && typeof url === "string") {
+            setTarget(userId, url);
+            response = `**Target Updated** to: \`${url}\`\n\nNow try:\n- /break - Analyze for vulnerabilities\n- /impact incident:api key leak\n- /breach type:.env exposed`;
           } else {
-            response = "Please provide a URL for the target.";
+            response = "Please provide a valid URL.";
           }
           break;
         }
+
         case "help":
           response = getDemoHelpMessage();
           break;
+
         default:
-          response = "Unknown command. Type `/help` for available commands.";
+          response = `Unknown command: ${commandName}. Use /help for available commands.`;
       }
-    } catch (error) {
-      console.error("Error processing Discord command:", error);
-      response = "An error occurred processing your request.";
+
+      // Truncate to Discord's 2000 character limit
+      const truncatedResponse = response.substring(0, 2000);
+
+      return new Response(
+        JSON.stringify({
+          type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+          data: {
+            content: truncatedResponse,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Send deferred response
-    return new Response(
-      JSON.stringify({
-        type: 4,
-        data: {
-          content: response.substring(0, 2000), // Discord has 2000 char limit
-        },
-      }),
-      {
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    console.log(`[Discord] Unhandled interaction type: ${interaction.type}`);
+    return new Response("Unsupported interaction type", { status: 400 });
+  } catch (error) {
+    console.error("[Discord] Error:", error);
+    return new Response("Internal server error", { status: 500 });
   }
-
-  return new Response("Unhandled interaction type", { status: 400 });
 }
