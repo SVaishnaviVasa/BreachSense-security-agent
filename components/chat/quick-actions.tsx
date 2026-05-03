@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Target, Zap, Globe, AlertTriangle } from "lucide-react";
+import { Target, Zap, Globe, AlertTriangle, Key, Shield } from "lucide-react";
 
 interface QuickActionsProps {
   onAction: (command: string) => void;
@@ -10,28 +10,39 @@ interface QuickActionsProps {
 
 const actions = [
   {
-    label: "Attack Demo",
+    label: "Simulate Attack",
     command: "/break",
     icon: Zap,
     variant: "destructive" as const,
+    description: "Run attack simulation",
+  },
+  {
+    label: "API Key Leak",
+    command: "/impact api key leak",
+    icon: Key,
+    variant: "outline" as const,
+    description: "Analyze API key exposure",
+  },
+  {
+    label: "OAuth Breach",
+    command: "/impact oauth compromise",
+    icon: Shield,
+    variant: "outline" as const,
+    description: "OAuth token compromise",
+  },
+  {
+    label: ".env Exposure",
+    command: "/breach .env leak",
+    icon: AlertTriangle,
+    variant: "outline" as const,
+    description: "Environment file leaked",
   },
   {
     label: "Vercel Breach",
     command: "/impact vercel breach",
     icon: Globe,
     variant: "outline" as const,
-  },
-  {
-    label: ".env Leak",
-    command: "/breach .env leak",
-    icon: AlertTriangle,
-    variant: "outline" as const,
-  },
-  {
-    label: "Set Target",
-    command: "/target https://juice-shop.herokuapp.com",
-    icon: Target,
-    variant: "secondary" as const,
+    description: "Deployment platform breach",
   },
 ];
 
