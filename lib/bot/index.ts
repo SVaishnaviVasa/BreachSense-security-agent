@@ -4,7 +4,7 @@ import { createDiscordAdapter } from "@chat-adapter/discord";
 import { createMemoryState } from "@chat-adapter/state-memory";
 import { streamText } from "ai";
 import {
-  MODEL,
+  geminiModel,
   SYSTEM_PROMPT,
   parseCommand,
   getHelpMessage,
@@ -106,7 +106,7 @@ async function handleBotMessage(
       case "break": {
         await thread.startTyping();
         const result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createAttackSimulationPrompt(context),
         });
@@ -118,7 +118,7 @@ async function handleBotMessage(
         await thread.startTyping();
         const incident = command.incident || "api key leak";
         const result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createImpactAnalysisPrompt(incident, context),
         });
@@ -130,7 +130,7 @@ async function handleBotMessage(
         await thread.startTyping();
         const breachType = command.breachType || ".env leak";
         const result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           prompt: createBreachResponsePrompt(breachType, context),
         });
@@ -155,7 +155,7 @@ async function handleBotMessage(
         }
 
         const result = streamText({
-          model: MODEL,
+          model: geminiModel,
           system: SYSTEM_PROMPT,
           messages: history,
         });
