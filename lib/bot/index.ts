@@ -1,40 +1,31 @@
 import { Chat } from "chat";
 import { createSlackAdapter } from "@chat-adapter/slack";
-import { createDiscordAdapter } from "@chat-adapter/discord";
 import { createMemoryState } from "@chat-adapter/state-memory";
-import { streamText } from "ai";
+import { getContext, setTarget } from "@/lib/context/store";
 import {
-  geminiModel,
-  SYSTEM_PROMPT,
   parseCommand,
   getHelpMessage,
 } from "@/lib/ai/agent";
 import {
-  createAttackSimulationPrompt,
-  createImpactAnalysisPrompt,
-  createBreachResponsePrompt,
-} from "@/lib/ai/prompts";
-import { getContext, setTarget } from "@/lib/context/store";
+  getDemoAttackSimulation,
+  getDemoImpactAnalysis,
+  getDemoBreachResponse,
+  getDemoGeneralResponse,
+} from "@/lib/ai/demo-responses";
 
 // Check if we're in demo mode (no platform tokens)
 const hasSlackToken = !!process.env.SLACK_BOT_TOKEN;
-const hasDiscordToken = !!process.env.DISCORD_BOT_TOKEN;
-const isDemoMode = !hasSlackToken && !hasDiscordToken;
+const isDemoMode = !hasSlackToken;
 
 // Build adapters based on available credentials
-const adapters: Record<string, ReturnType<typeof createSlackAdapter> | ReturnType<typeof createDiscordAdapter>> = {};
+// Note: Discord adapter removed due to native dependency issues in serverless
+// Discord support can be added via Discord Interactions API instead
+const adapters: Record<string, ReturnType<typeof createSlackAdapter>> = {};
 
 if (hasSlackToken && process.env.SLACK_SIGNING_SECRET) {
   adapters.slack = createSlackAdapter({
     botToken: process.env.SLACK_BOT_TOKEN!,
     signingSecret: process.env.SLACK_SIGNING_SECRET!,
-  });
-}
-
-if (hasDiscordToken) {
-  adapters.discord = createDiscordAdapter({
-    botToken: process.env.DISCORD_BOT_TOKEN!,
-    publicKey: process.env.DISCORD_PUBLIC_KEY || "",
   });
 }
 
@@ -94,7 +85,7 @@ async function handleBotMessage(
         }
         const updatedContext = setTarget(sessionId, command.url);
         await thread.post(
-          `✅ **Target Registered Successfully**\n\n` +
+          `**Target Registered Successfully**\n\n` +
           `**URL:** ${updatedContext.target}\n` +
           `**Detected Type:** ${updatedContext.type === "web" ? "Web Application" : "API Endpoint"}\n` +
           `**Environment:** ${updatedContext.environment}\n\n` +
@@ -105,36 +96,24 @@ async function handleBotMessage(
 
       case "break": {
         await thread.startTyping();
-        const result = streamText({
-          model: geminiModel,
-          system: SYSTEM_PROMPT,
-          prompt: createAttackSimulationPrompt(context),
-        });
-        await thread.post(result.textStream);
+        const response = getDemoAttackSimulation(context);
+        await thread.post(response);
         break;
       }
 
       case "impact": {
         await thread.startTyping();
         const incident = command.incident || "api key leak";
-        const result = streamText({
-          model: geminiModel,
-          system: SYSTEM_PROMPT,
-          prompt: createImpactAnalysisPrompt(incident, context),
-        });
-        await thread.post(result.textStream);
+        const response = getDemoImpactAnalysis(incident, context);
+        await thread.post(response);
         break;
       }
 
       case "breach": {
         await thread.startTyping();
         const breachType = command.breachType || ".env leak";
-        const result = streamText({
-          model: geminiModel,
-          system: SYSTEM_PROMPT,
-          prompt: createBreachResponsePrompt(breachType, context),
-        });
-        await thread.post(result.textStream);
+        const response = getDemoBreachResponse(breachType, context);
+        await thread.post(response);
         break;
       }
 
@@ -145,21 +124,8 @@ async function handleBotMessage(
 
       case "chat": {
         await thread.startTyping();
-        // Build conversation history
-        const history: Array<{ role: "user" | "assistant"; content: string }> = [];
-        for await (const msg of thread.allMessages) {
-          history.push({
-            role: msg.author.isMe ? "assistant" : "user",
-            content: msg.text,
-          });
-        }
-
-        const result = streamText({
-          model: geminiModel,
-          system: SYSTEM_PROMPT,
-          messages: history,
-        });
-        await thread.post(result.textStream);
+        const response = getDemoGeneralResponse(text, context);
+        await thread.post(response);
         break;
       }
     }
