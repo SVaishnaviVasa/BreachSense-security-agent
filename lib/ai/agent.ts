@@ -6,6 +6,15 @@ import {
 } from "./prompts";
 import { getContext, setTarget, type ProjectContext } from "@/lib/context/store";
 import { getDemoHelpMessage } from "./demo-responses";
+import { createXai } from "@ai-sdk/xai";
+
+// Initialize Grok AI model if API key is available
+export const grokModel = process.env.XAI_API_KEY
+  ? createXai({
+      apiKey: process.env.XAI_API_KEY,
+      defaultModel: "grok-2-1212",
+    })
+  : null;
 
 // Re-export SYSTEM_PROMPT for use in API routes
 export const SYSTEM_PROMPT = _SYSTEM_PROMPT;

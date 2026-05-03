@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.176",
+    "@ai-sdk/xai": "^3.0.87",
+    "@chat-adapter/discord": "^4.27.0",
     "@chat-adapter/slack": "^4.27.0",
     "@chat-adapter/state-memory": "^4.27.0",
     "@hookform/resolvers": "^3.9.1",
@@ -48,6 +50,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
+    "discord-interactions": "^4.4.0",
     "embla-carousel-react": "8.6.0",
     "input-otp": "1.4.2",
     "lucide-react": "^0.564.0",

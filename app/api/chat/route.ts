@@ -2,9 +2,11 @@ import {
   UIMessage,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  streamText,
+  convertToModelMessages,
 } from "ai";
-import { parseCommand } from "@/lib/ai/agent";
-import { getContext } from "@/lib/context/store";
+import { parseCommand, grokModel, SYSTEM_PROMPT } from "@/lib/ai/agent";
+import { getContext, setTarget } from "@/lib/context/store";
 import {
   getDemoAttackSimulation,
   getDemoImpactAnalysis,
@@ -14,6 +16,9 @@ import {
 } from "@/lib/ai/demo-responses";
 
 export const maxDuration = 30;
+
+// Check if Grok AI is available
+const USE_AI = !!grokModel;
 
 // Helper to extract text from UIMessage
 function getMessageText(message: UIMessage): string {
@@ -41,7 +46,37 @@ export async function POST(req: Request) {
     const command = parseCommand(lastMessageText);
     const context = getContext("default");
 
-    // Get the appropriate response based on command
+    // Use AI if available for general chat
+    if (USE_AI && grokModel && command.type === "chat") {
+      const conversationMessages = await convertToModelMessages(messages);
+      const result = streamText({
+        model: grokModel,
+        system: SYSTEM_PROMPT,
+        messages: conversationMessages,
+      });
+
+      return result.toUIMessageStreamResponse();
+    }
+
+    // Use AI for command-based queries if available
+    if (USE_AI && grokModel && ["break", "impact", "breach"].includes(command.type)) {
+      const systemPrompt =
+        command.type === "break"
+          ? `${SYSTEM_PROMPT}\n\nThe user wants an attack simulation on ${context.target}. Provide a detailed, realistic attack chain with specific payloads and vulnerabilities.`
+          : command.type === "impact"
+            ? `${SYSTEM_PROMPT}\n\nAnalyze how this breach impacts ${context.target}: ${command.incident || "API key leak"}`
+            : `${SYSTEM_PROMPT}\n\nProvide incident response guidance for ${command.breachType || "internal breach"} affecting ${context.target}`;
+
+      const result = streamText({
+        model: grokModel,
+        system: systemPrompt,
+        messages: [{ role: "user", content: lastMessageText }],
+      });
+
+      return result.toUIMessageStreamResponse();
+    }
+
+    // Fall back to demo mode
     let responseText: string;
 
     switch (command.type) {
@@ -57,42 +92,34 @@ export async function POST(req: Request) {
       case "help":
         responseText = getDemoHelpMessage();
         break;
+      case "target":
+        if (command.url) {
+          setTarget("default", command.url);
+        }
+        responseText = `Target: ${command.url || context.target}`;
+        break;
       case "chat":
       default:
         responseText = getDemoGeneralResponse(lastMessageText, context);
         break;
     }
 
-    // Create a proper UI message stream
+    // Stream demo response
     return createUIMessageStreamResponse({
       stream: createUIMessageStream({
         async execute({ writer }) {
           const textId = `response-${Date.now()}`;
-          
-          // Start the text block
-          writer.write({
-            type: "text-start",
-            id: textId,
-          });
+          writer.write({ type: "text-start", id: textId });
 
-          // Stream the text in chunks for realistic effect
+          // Stream in chunks for realistic effect
           const chunkSize = 15;
           for (let i = 0; i < responseText.length; i += chunkSize) {
             const chunk = responseText.slice(i, i + chunkSize);
-            writer.write({
-              type: "text-delta",
-              id: textId,
-              delta: chunk,
-            });
-            // Small delay for streaming effect
+            writer.write({ type: "text-delta", id: textId, delta: chunk });
             await new Promise((resolve) => setTimeout(resolve, 8));
           }
 
-          // End the text block
-          writer.write({
-            type: "text-end",
-            id: textId,
-          });
+          writer.write({ type: "text-end", id: textId });
         },
       }),
     });
@@ -104,16 +131,7 @@ export async function POST(req: Request) {
       stream: createUIMessageStream({
         async execute({ writer }) {
           const textId = `error-${Date.now()}`;
-          const fallbackText = `**Error Processing Request**
-
-${errorMessage}
-
-Please try one of these commands:
-- \`/break\` - Attack simulation
-- \`/impact api key leak\` - Breach impact analysis  
-- \`/breach .env leak\` - Incident response guidance
-- \`/help\` - Show all commands`;
-
+          const fallbackText = `**Error Processing Request**\n\n${errorMessage}\n\nTry: \`/break\`, \`/help\`, or \`/target <url>\``;
           writer.write({ type: "text-start", id: textId });
           writer.write({ type: "text-delta", id: textId, delta: fallbackText });
           writer.write({ type: "text-end", id: textId });
