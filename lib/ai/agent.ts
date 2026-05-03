@@ -7,6 +7,7 @@ import {
   createBreachResponsePrompt,
 } from "./prompts";
 import { getContext, setTarget, type ProjectContext } from "@/lib/context/store";
+import { getDemoHelpMessage } from "./demo-responses";
 
 // Using Google Gemini directly - reads GOOGLE_GENERATIVE_AI_API_KEY automatically
 export const geminiModel = google("gemini-2.0-flash-001");
@@ -58,28 +59,7 @@ export function parseCommand(text: string): Command {
 }
 
 export function getHelpMessage(): string {
-  return `**🛡️ BreachSense Commands**
-
-**/target <url>** - Register a target website or API
-Example: \`/target https://example.com\`
-
-**/break** - Simulate an attack on the current target
-Analyzes vulnerabilities and generates an attack chain
-
-**/impact <incident>** - Analyze impact of a security incident
-Examples:
-- \`/impact vercel breach\`
-- \`/impact api key leak\`
-- \`/impact oauth compromise\`
-
-**/breach <type>** - Simulate an internal breach scenario
-Examples:
-- \`/breach .env leak\`
-- \`/breach token exposure\`
-
-**/help** - Show this help message
-
-**Current Target:** Use \`/target\` to set a new target, or the default OWASP Juice Shop will be used for demonstrations.`;
+  return getDemoHelpMessage();
 }
 
 export async function handleCommand(

