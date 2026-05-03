@@ -1,460 +1,843 @@
 import type { ProjectContext } from "@/lib/context/store";
 
-// Demo mode responses for when AI Gateway is not available
-// These provide realistic, structured responses that match what the AI would generate
+// Demo mode responses that are contextual to the target application
+// These analyze how global breaches would specifically impact the user's target system
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+function inferTechStack(url: string): string[] {
+  const domain = url.toLowerCase();
+  const stack: string[] = [];
+  
+  // Infer based on common patterns
+  if (domain.includes("vercel") || domain.includes(".app")) {
+    stack.push("Vercel", "Next.js", "Node.js");
+  }
+  if (domain.includes("netlify")) {
+    stack.push("Netlify", "Jamstack");
+  }
+  if (domain.includes("herokuapp") || domain.includes("heroku")) {
+    stack.push("Heroku", "Node.js/Python");
+  }
+  if (domain.includes("aws") || domain.includes("amazonaws")) {
+    stack.push("AWS", "Lambda", "S3");
+  }
+  if (domain.includes("azure")) {
+    stack.push("Azure", "Azure Functions");
+  }
+  if (domain.includes("juice-shop") || domain.includes("owasp")) {
+    stack.push("Node.js", "Express", "SQLite", "Angular");
+  }
+  if (domain.includes("api") || domain.includes("/v1") || domain.includes("/v2")) {
+    stack.push("REST API");
+  }
+  
+  // Default tech stack if nothing specific detected
+  if (stack.length === 0) {
+    stack.push("Web Application", "Database", "Authentication Service");
+  }
+  
+  return stack;
+}
 
 export function getDemoAttackSimulation(context: ProjectContext): string {
+  const domain = extractDomain(context.target);
+  const techStack = inferTechStack(context.target);
   const isJuiceShop = context.target.includes("juice-shop") || context.target.includes("owasp");
   
   if (isJuiceShop) {
-    return `**🎯 Attack Simulation Report**
+    return `## Attack Simulation Report
 
 **Target:** ${context.target}
-**Type:** ${context.type === "web" ? "Web Application" : "API"}
+**Domain:** ${domain}
+**Type:** ${context.type === "web" ? "Web Application" : "API Endpoint"}
+**Detected Stack:** ${techStack.join(", ")}
 
-**🔓 Vulnerabilities Discovered:**
+---
 
-1. 🔴 **SQL Injection (Critical)** - Login form vulnerable to authentication bypass
-   - Location: \`/rest/user/login\`
-   - Payload: \`' OR 1=1--\`
+### Vulnerabilities Discovered
 
-2. 🔴 **Cross-Site Scripting (XSS)** - Stored XSS in product search and reviews
-   - Location: \`/#/search\`, \`/api/Feedbacks\`
-   - Type: Reflected and Stored XSS
+| Severity | Vulnerability | Location | Status |
+|----------|--------------|----------|--------|
+| CRITICAL | SQL Injection | \`/rest/user/login\` | Exploitable |
+| CRITICAL | Cross-Site Scripting (XSS) | \`/#/search\`, \`/api/Feedbacks\` | Exploitable |
+| HIGH | Broken Access Control | \`/#/administration\` | Exploitable |
+| HIGH | Sensitive Data Exposure | \`/api/Users\` | Confirmed |
+| MEDIUM | Security Misconfiguration | Error handling | Confirmed |
 
-3. 🟡 **Broken Access Control** - Admin functions accessible via direct URL manipulation
-   - Location: \`/#/administration\`
-   - Impact: Unauthorized admin access
+---
 
-4. 🟡 **Sensitive Data Exposure** - API exposes user data without proper filtering
-   - Location: \`/api/Users\`
-   - Exposed: Email addresses, password hints
+### Attack Chain
 
-5. 🟢 **Security Misconfiguration** - Verbose error messages reveal stack traces
-   - Impact: Information leakage for further attacks
+\`\`\`
+1. RECONNAISSANCE
+   └─> Discovered /api-docs and /ftp endpoints
+   └─> Enumerated 47 API endpoints
+   
+2. INITIAL ACCESS  
+   └─> SQL Injection: admin'-- bypassed authentication
+   └─> Gained admin session token
+   
+3. PRIVILEGE ESCALATION
+   └─> Accessed /#/administration panel
+   └─> Modified user roles in database
+   
+4. DATA EXFILTRATION
+   └─> Dumped user table via /api/Users
+   └─> Extracted 1,247 user records
+   
+5. PERSISTENCE
+   └─> Created backdoor admin account
+   └─> Planted XSS payload in product reviews
+\`\`\`
 
-**⛓️ Attack Chain:**
+---
 
-1. **Reconnaissance** - Scan for exposed endpoints using \`/api-docs\` and \`/ftp\`
-2. **Initial Access** - Exploit SQL injection in login: \`admin'--\` to bypass authentication
-3. **Privilege Escalation** - Access admin panel via \`/#/administration\`
-4. **Data Exfiltration** - Dump user database via \`/api/Users\` endpoint
-5. **Persistence** - Create backdoor admin account for future access
+### Impact Assessment
 
-**📊 Confidence Level:** High
+- **User Data at Risk:** Email addresses, password hashes, purchase history
+- **Financial Impact:** Potential payment data exposure via order history
+- **Compliance:** GDPR/CCPA violations likely
+- **Reputation:** Public disclosure would severely damage trust
 
-**🛡️ Immediate Recommendations:**
+---
 
-1. Implement parameterized queries for all database operations
-2. Add input sanitization and output encoding for XSS prevention
-3. Enforce role-based access control on all admin routes
-4. Implement rate limiting and Web Application Firewall (WAF)`;
+### Immediate Remediation
+
+1. **Parameterize all SQL queries** - Prevent injection attacks
+2. **Implement output encoding** - Prevent XSS
+3. **Add RBAC middleware** - Enforce access control
+4. **Enable WAF rules** - Block common attack patterns
+5. **Audit all endpoints** - Remove unnecessary exposure`;
   }
 
-  // Generic response for other targets
-  return `**🎯 Attack Simulation Report**
+  // Generic target analysis
+  return `## Attack Simulation Report
 
 **Target:** ${context.target}
-**Type:** ${context.type === "web" ? "Web Application" : "API"}
+**Domain:** ${domain}
+**Type:** ${context.type === "web" ? "Web Application" : "API Endpoint"}
+**Detected Stack:** ${techStack.join(", ")}
 
-**🔓 Vulnerabilities Discovered:**
+---
 
-1. 🟡 **Authentication Weakness** - Session management could be improved
-   - Recommendation: Implement secure session tokens with proper expiration
+### Reconnaissance Results
 
-2. 🟡 **Input Validation** - Some input fields may be vulnerable to injection
-   - Recommendation: Implement server-side validation for all inputs
+| Check | Result | Risk |
+|-------|--------|------|
+| DNS Records | Analyzed | Low |
+| SSL Certificate | Valid | Info |
+| Technology Detection | ${techStack.join(", ")} | Info |
+| Open Ports | 80, 443 | Info |
+| Security Headers | Partial | Medium |
 
-3. 🟡 **CORS Configuration** - Cross-origin policies should be reviewed
-   - Recommendation: Restrict CORS to specific trusted domains
+---
 
-4. 🟢 **Security Headers** - Some recommended headers may be missing
-   - Recommendation: Add CSP, X-Frame-Options, X-Content-Type-Options
+### Potential Vulnerabilities
 
-5. 🟢 **Rate Limiting** - API endpoints may benefit from rate limiting
-   - Recommendation: Implement rate limiting to prevent brute force
+| Severity | Vulnerability | Assessment |
+|----------|--------------|------------|
+| MEDIUM | Missing Security Headers | CSP, X-Frame-Options may be absent |
+| MEDIUM | Input Validation | Forms should be tested for injection |
+| LOW | CORS Policy | Configuration should be reviewed |
+| LOW | Cookie Security | HttpOnly/Secure flags should be verified |
+| INFO | Error Handling | Error messages should not leak info |
 
-**⛓️ Attack Chain:**
+---
 
-1. **Reconnaissance** - Enumerate endpoints and identify technologies
-2. **Vulnerability Analysis** - Test for common web vulnerabilities
-3. **Exploitation Attempt** - Target identified weaknesses
-4. **Impact Assessment** - Evaluate potential data access
-5. **Report Generation** - Document findings and recommendations
+### Recommended Attack Vectors to Test
 
-**📊 Confidence Level:** Medium
+1. **Authentication Testing**
+   - Brute force protection
+   - Session management
+   - Password policy enforcement
 
-**🛡️ Immediate Recommendations:**
+2. **Input Validation**
+   - SQL/NoSQL injection points
+   - XSS in all input fields
+   - Command injection in any system calls
 
-1. Conduct a full security audit of authentication mechanisms
-2. Implement comprehensive input validation
-3. Review and harden CORS and security header configurations
-4. Set up monitoring and alerting for suspicious activities`;
+3. **Access Control**
+   - Horizontal privilege escalation
+   - Vertical privilege escalation
+   - IDOR vulnerabilities
+
+4. **API Security** (if ${context.type === "api" ? "applicable" : "detected"})
+   - Rate limiting
+   - Authentication bypass
+   - Mass assignment
+
+---
+
+### Next Steps
+
+Run \`/impact <breach_type>\` to analyze how specific breach scenarios would affect **${domain}**`;
 }
 
 export function getDemoImpactAnalysis(incident: string, context: ProjectContext): string {
+  const domain = extractDomain(context.target);
+  const techStack = inferTechStack(context.target);
   const incidentLower = incident.toLowerCase();
   
-  if (incidentLower.includes("vercel") || incidentLower.includes("deployment")) {
-    return `**🌐 Global Breach Impact Analysis**
+  // Vercel/Deployment platform breach
+  if (incidentLower.includes("vercel") || incidentLower.includes("deployment") || incidentLower.includes("netlify")) {
+    const platform = incidentLower.includes("netlify") ? "Netlify" : "Vercel";
+    return `## Breach Impact Analysis: ${incident}
 
-**Incident:** ${incident}
+**Your Application:** ${context.target}
+**Domain:** ${domain}
+**Tech Stack:** ${techStack.join(", ")}
 
-**💥 Impact Assessment:**
+---
 
-- 🔴 **Environment Variable Exposure** - If your app uses Vercel, environment variables (API keys, database credentials, secrets) may be at risk
-- 🔴 **Source Code Access** - Deployment configurations could reveal your application architecture and sensitive logic
-- 🟡 **Third-Party Integration Risk** - Any integrated services (databases, APIs, auth providers) may need credential rotation
-- 🟡 **Build-time Secrets** - Secrets injected during build could be compromised
+### How This Breach Affects YOUR System
 
-**⚠️ Risk Level:** 🔴 High
+If ${platform} was breached and your application (**${domain}**) is deployed there, here's the specific impact:
 
-**🎯 Affected Systems:**
+---
 
-- **Deployment Platform** - All Vercel-hosted projects
-- **Environment Variables** - Database URLs, API keys, OAuth secrets
-- **CI/CD Pipeline** - Build configurations and deployment tokens
-- **Integrated Services** - Any third-party APIs using exposed credentials
-- **Target Application** - ${context.target}
+### Exposed Assets (High Risk)
 
-**🔐 Immediate Actions Required:**
+| Asset | Location | Impact on ${domain} |
+|-------|----------|---------------------|
+| Environment Variables | ${platform} Dashboard | **CRITICAL** - All secrets exposed |
+| Source Code | Git Integration | **HIGH** - Business logic revealed |
+| Build Logs | CI/CD Pipeline | **MEDIUM** - May contain secrets |
+| Deployment Tokens | API Access | **HIGH** - Unauthorized deployments |
 
-1. **Rotate ALL secrets** stored in Vercel environment variables
-2. **Revoke and regenerate** all API keys and tokens
-3. **Review access logs** for unauthorized access patterns
-4. **Enable MFA** on all team accounts if not already active
-5. **Audit deployment history** for suspicious changes
+---
 
-**📋 Long-term Recommendations:**
+### Specific Credentials at Risk for ${domain}
 
-1. Implement secrets management solution (HashiCorp Vault, AWS Secrets Manager)
-2. Use short-lived credentials where possible
-3. Set up automated secret rotation policies`;
+Based on typical ${techStack.join("/")} deployments:
+
+| Credential Type | Likely Variable | Action Required |
+|-----------------|-----------------|-----------------|
+| Database URL | \`DATABASE_URL\` | **ROTATE IMMEDIATELY** |
+| API Keys | \`API_KEY\`, \`SECRET_KEY\` | **ROTATE IMMEDIATELY** |
+| Auth Secrets | \`JWT_SECRET\`, \`SESSION_SECRET\` | **ROTATE + INVALIDATE SESSIONS** |
+| Third-Party APIs | \`STRIPE_KEY\`, \`SENDGRID_KEY\` | **ROTATE IN PROVIDER DASHBOARD** |
+| OAuth Secrets | \`OAUTH_CLIENT_SECRET\` | **ROTATE + RE-CONFIGURE** |
+
+---
+
+### Attack Scenarios Against ${domain}
+
+1. **Database Compromise**
+   - Attacker obtains \`DATABASE_URL\`
+   - Direct access to all user data
+   - Can modify, delete, or ransom data
+
+2. **Authentication Bypass**
+   - \`JWT_SECRET\` allows forging tokens
+   - Attacker can impersonate any user
+   - Admin access possible
+
+3. **Supply Chain Attack**
+   - Malicious code injected into builds
+   - Affects all users of ${domain}
+   - Persistent backdoor possible
+
+---
+
+### Immediate Actions for ${domain}
+
+\`\`\`
+HOUR 1 (Critical):
+├── Rotate DATABASE_URL and all database credentials
+├── Generate new JWT_SECRET and invalidate all sessions  
+├── Rotate all third-party API keys (Stripe, etc.)
+└── Review recent deployments for unauthorized changes
+
+HOUR 2-4 (High Priority):
+├── Audit ${platform} access logs for your project
+├── Review git history for suspicious commits
+├── Enable enhanced security (2FA, IP restrictions)
+└── Notify your security team/incident response
+
+DAY 1-2 (Recovery):
+├── Implement secrets manager (Vault, AWS Secrets Manager)
+├── Set up secret rotation policies
+├── Deploy monitoring for credential usage
+└── Document incident for compliance
+\`\`\`
+
+---
+
+### Compliance Implications for ${domain}
+
+- **GDPR**: 72-hour breach notification may be required
+- **SOC2**: Incident documentation required
+- **PCI-DSS**: If processing payments, card brands must be notified`;
   }
 
-  if (incidentLower.includes("api") || incidentLower.includes("key") || incidentLower.includes("leak")) {
-    return `**🌐 Global Breach Impact Analysis**
+  // API Key / Credential leak
+  if (incidentLower.includes("api") || incidentLower.includes("key") || incidentLower.includes("leak") || incidentLower.includes("credential")) {
+    return `## Breach Impact Analysis: ${incident}
 
-**Incident:** ${incident}
+**Your Application:** ${context.target}
+**Domain:** ${domain}
+**Tech Stack:** ${techStack.join(", ")}
 
-**💥 Impact Assessment:**
+---
 
-- 🔴 **Unauthorized API Access** - Exposed keys allow attackers to make authenticated requests
-- 🔴 **Data Theft Risk** - Any data accessible via the API could be exfiltrated
-- 🟡 **Rate Limit Abuse** - Attackers may consume your API quotas
-- 🟡 **Financial Impact** - Usage-based APIs could incur unexpected charges
+### Impact on ${domain}
 
-**⚠️ Risk Level:** 🔴 High
+An API key leak affecting your application would have the following consequences:
 
-**🎯 Affected Systems:**
+---
 
-- **API Services** - All endpoints accessible with the leaked key
-- **Data Storage** - Databases and storage services using the compromised credentials
-- **Third-Party Services** - External APIs (Stripe, Twilio, AWS) using exposed keys
-- **User Data** - Personal information accessible through compromised APIs
-- **Target Application** - ${context.target}
+### Risk Assessment Matrix
 
-**🔐 Immediate Actions Required:**
+| API/Service | If Key Leaked | Impact on ${domain} | Severity |
+|-------------|---------------|---------------------|----------|
+| Database | Direct data access | User data theft, manipulation | CRITICAL |
+| Auth Provider | Account takeover | Full user impersonation | CRITICAL |
+| Payment (Stripe) | Financial fraud | Unauthorized charges | CRITICAL |
+| Email (SendGrid) | Spam/Phishing | Reputation damage | HIGH |
+| Storage (S3) | Data theft | File exfiltration | HIGH |
+| Analytics | Privacy breach | User behavior exposure | MEDIUM |
 
-1. **Immediately revoke** the compromised API key
-2. **Generate new credentials** with restricted permissions
-3. **Audit API logs** for unauthorized usage
-4. **Check billing** for unexpected charges
-5. **Notify affected users** if their data was potentially accessed
+---
 
-**📋 Long-term Recommendations:**
+### What Attackers Can Do to ${domain}
 
-1. Implement API key rotation policies
-2. Use environment-specific keys with minimal required permissions
-3. Set up anomaly detection for API usage patterns`;
+**With Database Credentials:**
+\`\`\`
+- Export entire user database
+- Modify user permissions/roles  
+- Delete or ransom data
+- Plant persistent backdoors
+\`\`\`
+
+**With Auth Secrets:**
+\`\`\`
+- Forge valid authentication tokens
+- Bypass MFA for any user
+- Create admin accounts
+- Persist access indefinitely
+\`\`\`
+
+**With Payment API Keys:**
+\`\`\`
+- View transaction history
+- Issue unauthorized refunds
+- Create fraudulent charges
+- Access customer payment methods
+\`\`\`
+
+---
+
+### Detection Checklist for ${domain}
+
+| Check | How to Verify | Status |
+|-------|---------------|--------|
+| Unusual API traffic | Check logs for spikes | [ ] |
+| New admin accounts | Query user table | [ ] |
+| Modified records | Audit trail review | [ ] |
+| Unexpected charges | Payment dashboard | [ ] |
+| Failed auth attempts | Auth provider logs | [ ] |
+
+---
+
+### Recovery Plan for ${domain}
+
+**Phase 1: Containment (0-2 hours)**
+- Identify which specific keys were exposed
+- Revoke compromised keys immediately
+- Deploy with new credentials
+
+**Phase 2: Assessment (2-24 hours)**
+- Audit all API access logs
+- Identify unauthorized actions
+- Assess data exposure scope
+
+**Phase 3: Notification (24-72 hours)**
+- Notify affected users if data accessed
+- Report to relevant authorities if required
+- Update stakeholders on status
+
+**Phase 4: Hardening (1-2 weeks)**
+- Implement key rotation policies
+- Add anomaly detection
+- Enhanced monitoring deployment`;
   }
 
-  if (incidentLower.includes("oauth") || incidentLower.includes("auth") || incidentLower.includes("sso")) {
-    return `**🌐 Global Breach Impact Analysis**
+  // OAuth / Authentication breach
+  if (incidentLower.includes("oauth") || incidentLower.includes("auth") || incidentLower.includes("sso") || incidentLower.includes("okta") || incidentLower.includes("auth0")) {
+    const provider = incidentLower.includes("okta") ? "Okta" : incidentLower.includes("auth0") ? "Auth0" : "OAuth Provider";
+    return `## Breach Impact Analysis: ${incident}
 
-**Incident:** ${incident}
+**Your Application:** ${context.target}
+**Domain:** ${domain}
+**Auth Integration:** ${provider}
 
-**💥 Impact Assessment:**
+---
 
-- 🔴 **Account Takeover Risk** - Attackers could impersonate users across all SSO-connected services
-- 🔴 **Session Hijacking** - Active sessions may be vulnerable to hijacking
-- 🟡 **Privilege Escalation** - OAuth scopes may allow access beyond intended permissions
-- 🟡 **Lateral Movement** - Compromised tokens could access multiple connected applications
+### Impact on ${domain} Users
 
-**⚠️ Risk Level:** 🔴 Critical
+If ${provider} was breached and ${domain} uses it for authentication:
 
-**🎯 Affected Systems:**
+---
 
-- **Identity Provider** - OAuth/SSO provider accounts and configurations
-- **Connected Applications** - All apps using the compromised OAuth flow
-- **User Sessions** - Active sessions using OAuth tokens
-- **API Authorizations** - Third-party apps with OAuth permissions
-- **Target Application** - ${context.target}
+### Affected Authentication Flows
 
-**🔐 Immediate Actions Required:**
+| Flow | Risk to ${domain} | User Impact |
+|------|-------------------|-------------|
+| SSO Login | CRITICAL | All SSO users compromised |
+| OAuth Tokens | CRITICAL | Active sessions hijackable |
+| API Authorization | HIGH | M2M tokens at risk |
+| MFA Seeds | HIGH | 2FA can be bypassed |
+| User Directory | MEDIUM | User data exposed |
 
-1. **Invalidate all OAuth tokens** and force re-authentication
-2. **Rotate OAuth client secrets** immediately
-3. **Review OAuth scopes** and reduce permissions
-4. **Enable session monitoring** for anomalous behavior
-5. **Force password resets** for potentially affected users
+---
 
-**📋 Long-term Recommendations:**
+### Specific Risks for ${domain}
 
-1. Implement token binding and additional verification
-2. Use short-lived tokens with refresh token rotation
-3. Set up continuous authentication monitoring`;
+**Session Hijacking:**
+- Attacker can steal active session tokens
+- No re-authentication required
+- Access persists until token expires
+- Affects: ${techStack.includes("Next.js") ? "Next-Auth sessions" : "All authenticated users"}
+
+**Token Forgery:**
+- If signing keys compromised
+- Attacker creates valid JWTs
+- Can impersonate any user
+- Affects: API calls, protected routes
+
+**Lateral Movement:**
+- ${domain} users likely use SSO elsewhere
+- Compromised identity = access to multiple apps
+- Business email access possible
+- Affects: Connected services, data
+
+---
+
+### User Impact Analysis for ${domain}
+
+| User Type | Risk Level | Immediate Action |
+|-----------|------------|------------------|
+| Admin Users | CRITICAL | Force logout + password reset |
+| Regular Users | HIGH | Invalidate sessions |
+| API Clients | HIGH | Rotate client credentials |
+| Service Accounts | MEDIUM | Review and rotate |
+
+---
+
+### Remediation Steps for ${domain}
+
+\`\`\`
+IMMEDIATE (Within 1 hour):
+├── Invalidate ALL active sessions
+├── Rotate OAuth client secret
+├── Force re-authentication for all users
+└── Enable security alerts
+
+SHORT-TERM (Within 24 hours):
+├── Review ${provider} audit logs
+├── Check for unauthorized app registrations
+├── Verify OAuth scopes haven't changed
+└── Notify users to watch for phishing
+
+LONG-TERM (Within 1 week):
+├── Implement session binding (device, IP)
+├── Add step-up authentication for sensitive ops
+├── Deploy continuous authentication monitoring
+└── Review backup auth methods
+\`\`\`
+
+---
+
+### User Communication Template
+
+> **Security Notice for ${domain} Users**
+> 
+> Due to a security incident with our authentication provider, we have logged out all users as a precaution. Please log in again with your credentials. We recommend enabling 2FA if you haven't already.`;
   }
 
-  // Generic incident response
-  return `**🌐 Global Breach Impact Analysis**
+  // Generic breach analysis
+  return `## Breach Impact Analysis: ${incident}
 
-**Incident:** ${incident}
+**Your Application:** ${context.target}
+**Domain:** ${domain}
+**Tech Stack:** ${techStack.join(", ")}
 
-**💥 Impact Assessment:**
+---
 
-- 🟡 **Potential Data Exposure** - Review what data could be accessed
-- 🟡 **Credential Risk** - Assess if any credentials may be compromised
-- 🟡 **Service Continuity** - Evaluate impact on operations
-- 🟢 **Reputation Impact** - Consider customer communication needs
+### General Impact Assessment
 
-**⚠️ Risk Level:** 🟡 Medium
+This section analyzes how **${incident}** could affect your application at **${domain}**.
 
-**🎯 Affected Systems:**
+---
 
-- **Primary Application** - ${context.target}
-- **Connected Services** - Review all integrations
-- **Data Stores** - Audit database access
-- **User Accounts** - Monitor for suspicious activity
+### Potential Exposure Areas for ${domain}
 
-**🔐 Immediate Actions Required:**
+| Area | Risk Level | Likelihood |
+|------|------------|------------|
+| User Data | HIGH | Depends on breach scope |
+| Credentials | HIGH | If stored in affected system |
+| Business Logic | MEDIUM | Source code exposure |
+| Infrastructure | MEDIUM | Config/secrets exposure |
+| Third-Party Data | LOW-MEDIUM | API integrations |
 
-1. **Assess the scope** of the potential breach
-2. **Secure affected systems** and isolate if necessary
-3. **Review access logs** for unauthorized activity
-4. **Notify stakeholders** according to incident response plan
-5. **Document everything** for post-incident analysis
+---
 
-**📋 Long-term Recommendations:**
+### Questions to Assess Impact
 
-1. Update incident response procedures based on lessons learned
-2. Implement additional monitoring and alerting
-3. Conduct security awareness training for team`;
+1. **Does ${domain} use or integrate with the breached service?**
+   - If YES: High priority assessment needed
+   - If NO: Monitor for secondary effects
+
+2. **What data does the integration have access to?**
+   - User PII?
+   - Payment information?
+   - Authentication tokens?
+
+3. **Are there shared credentials?**
+   - Same passwords used elsewhere?
+   - Shared API keys?
+   - Common service accounts?
+
+---
+
+### Recommended Actions for ${domain}
+
+**Discovery Phase:**
+- Map all integrations with affected service
+- Identify shared credentials or data
+- Review access logs for anomalies
+
+**Containment Phase:**
+- Rotate any potentially exposed credentials
+- Enable enhanced monitoring
+- Prepare incident response team
+
+**Recovery Phase:**
+- Implement additional security controls
+- Update security policies
+- Document lessons learned
+
+---
+
+### Run Specific Analysis
+
+For more detailed analysis, try:
+- \`/impact vercel breach\` - Deployment platform compromise
+- \`/impact api key leak\` - Credential exposure
+- \`/impact oauth compromise\` - Authentication provider breach
+- \`/breach .env leak\` - Environment file exposure response`;
 }
 
 export function getDemoBreachResponse(breachType: string, context: ProjectContext): string {
+  const domain = extractDomain(context.target);
+  const techStack = inferTechStack(context.target);
   const breachLower = breachType.toLowerCase();
 
-  if (breachLower.includes("env") || breachLower.includes(".env")) {
-    return `**🚨 Breach Response Plan**
+  if (breachLower.includes("env") || breachLower.includes(".env") || breachLower.includes("environment")) {
+    return `## Incident Response: ${breachType}
 
-**Breach Type:** ${breachType}
+**Affected Application:** ${context.target}
+**Domain:** ${domain}
+**Severity:** CRITICAL
 
-**🔍 Exposure Analysis:**
+---
 
-- 🔴 **Database Credentials** - MongoDB/PostgreSQL connection strings with full access
-- 🔴 **API Keys** - Third-party service keys (Stripe, SendGrid, AWS)
-- 🔴 **Authentication Secrets** - JWT secrets, session keys, OAuth client secrets
-- 🟡 **Service URLs** - Internal service endpoints and admin URLs
+### Exposure Analysis for ${domain}
 
-**💀 Potential Attacker Actions:**
+Your \`.env\` file likely contains these sensitive values:
 
-- **Database Access** - Full read/write access to production data
-- **Financial Fraud** - Use payment API keys for unauthorized transactions
-- **Account Takeover** - Forge authentication tokens
-- **Infrastructure Compromise** - Access cloud resources via exposed AWS/GCP keys
+| Variable | Purpose | Risk if Exposed |
+|----------|---------|-----------------|
+| \`DATABASE_URL\` | Database connection | Full data access |
+| \`JWT_SECRET\` | Token signing | Session forgery |
+| \`API_KEYS\` | Third-party services | Service abuse |
+| \`OAUTH_SECRET\` | Authentication | Account takeover |
+| \`SMTP_PASSWORD\` | Email service | Phishing campaigns |
 
-**🛡️ Immediate Actions (First 1 Hour):**
+---
 
-1. ⚡ **Rotate ALL credentials** in the exposed .env file
-2. ⚡ **Revoke API keys** from third-party service dashboards
-3. ⚡ **Invalidate JWT secrets** and force all users to re-authenticate
-4. ⚡ **Change database passwords** and update connection strings
-5. ⚡ **Review recent logs** for unauthorized access attempts
+### Immediate Response Checklist for ${domain}
 
-**📋 Short-term Actions (24-48 Hours):**
+**MINUTE 1-15: Containment**
+- [ ] Remove exposed file from public access
+- [ ] Rotate \`DATABASE_URL\` credentials
+- [ ] Generate new \`JWT_SECRET\`
+- [ ] Revoke all active sessions
+- [ ] Change cloud provider passwords
 
-1. **Audit all services** for unauthorized changes or access
-2. **Review git history** to determine exposure duration
-3. **Set up secrets scanning** in CI/CD pipeline
-4. **Implement secrets manager** (Vault, AWS Secrets Manager)
+**MINUTE 15-60: Assessment**
+- [ ] Determine exposure duration
+- [ ] Check git history for file
+- [ ] Review access logs for unauthorized use
+- [ ] Identify all affected credentials
 
-**🔒 Prevention Measures:**
+**HOUR 1-4: Rotation**
+- [ ] Rotate ALL third-party API keys:
+  ${techStack.includes("Stripe") ? "  - Stripe: dashboard.stripe.com/apikeys" : "  - Payment provider API keys"}
+  - Email service (SendGrid/Postmark/SES)
+  - Storage (AWS S3/Cloudflare R2)
+  - Analytics/Monitoring keys
 
-- Use \`.gitignore\` to exclude \`.env\` files from version control
-- Implement pre-commit hooks to scan for secrets
-- Use environment variables from secure vault services
-- Conduct regular secret rotation
+**HOUR 4-24: Verification**
+- [ ] Deploy with new credentials
+- [ ] Verify all integrations working
+- [ ] Monitor for unauthorized access
+- [ ] Enable secrets scanning in CI/CD
 
-**✅ Recovery Checklist:**
+---
 
-1. [ ] All database credentials rotated
-2. [ ] All API keys regenerated
-3. [ ] JWT/session secrets changed
-4. [ ] Cloud provider credentials updated
-5. [ ] Monitoring alerts configured
-6. [ ] Incident documented for compliance`;
+### Git History Remediation
+
+If \`.env\` was committed to git:
+
+\`\`\`bash
+# Remove from history (destructive - backup first!)
+git filter-branch --force --index-filter \\
+  "git rm --cached --ignore-unmatch .env" \\
+  --prune-empty --tag-name-filter cat -- --all
+
+# Force push (coordinate with team!)
+git push origin --force --all
+git push origin --force --tags
+
+# All team members must:
+git fetch origin
+git reset --hard origin/main
+\`\`\`
+
+---
+
+### Prevention for ${domain}
+
+1. **Immediate:** Add to \`.gitignore\`:
+   \`\`\`
+   .env
+   .env.local
+   .env.*.local
+   \`\`\`
+
+2. **CI/CD:** Add pre-commit hook:
+   \`\`\`bash
+   # .git/hooks/pre-commit
+   if git diff --cached --name-only | grep -q ".env"; then
+     echo "ERROR: Attempting to commit .env file!"
+     exit 1
+   fi
+   \`\`\`
+
+3. **Long-term:** Use secrets manager:
+   - Vercel: Environment Variables UI
+   - AWS: Secrets Manager
+   - HashiCorp Vault
+
+---
+
+### Compliance Notifications
+
+| Regulation | Requirement | Deadline |
+|------------|-------------|----------|
+| GDPR | DPA notification | 72 hours |
+| CCPA | User notification | "Without unreasonable delay" |
+| SOC2 | Incident documentation | 24 hours |`;
   }
 
-  if (breachLower.includes("token") || breachLower.includes("jwt") || breachLower.includes("session")) {
-    return `**🚨 Breach Response Plan**
+  if (breachLower.includes("database") || breachLower.includes("db") || breachLower.includes("sql") || breachLower.includes("data")) {
+    return `## Incident Response: ${breachType}
 
-**Breach Type:** ${breachType}
+**Affected Application:** ${context.target}
+**Domain:** ${domain}
+**Severity:** CRITICAL
 
-**🔍 Exposure Analysis:**
+---
 
-- 🔴 **Session Tokens** - Active user sessions can be hijacked
-- 🔴 **JWT Secrets** - Attackers can forge valid authentication tokens
-- 🟡 **Refresh Tokens** - Long-lived tokens provide persistent access
-- 🟡 **API Tokens** - Service-to-service authentication compromised
+### Data at Risk in ${domain}
 
-**💀 Potential Attacker Actions:**
+| Data Type | Likely Tables | Exposure Risk |
+|-----------|---------------|---------------|
+| User Credentials | \`users\`, \`accounts\` | Password hashes, emails |
+| Personal Info | \`profiles\`, \`customers\` | Names, addresses, phone |
+| Financial Data | \`orders\`, \`payments\` | Transaction history |
+| Session Data | \`sessions\`, \`tokens\` | Active sessions |
+| Business Data | \`products\`, \`inventory\` | Proprietary information |
 
-- **Impersonate Users** - Access accounts without credentials
-- **Privilege Escalation** - Modify token claims to gain admin access
-- **Persistent Access** - Use refresh tokens for long-term access
-- **Data Exfiltration** - Access user data through authenticated endpoints
+---
 
-**🛡️ Immediate Actions (First 1 Hour):**
+### Immediate Response for ${domain}
 
-1. ⚡ **Rotate JWT signing secrets** immediately
-2. ⚡ **Invalidate all active sessions** in the database
-3. ⚡ **Force re-authentication** for all users
-4. ⚡ **Revoke all refresh tokens**
-5. ⚡ **Enable enhanced logging** for authentication events
+**PHASE 1: Containment (0-1 hour)**
 
-**📋 Short-term Actions (24-48 Hours):**
+\`\`\`sql
+-- Immediately revoke external access
+REVOKE ALL PRIVILEGES ON ALL TABLES FROM public_user;
 
-1. **Implement token blacklisting** for compromised tokens
-2. **Add token binding** to prevent token replay
-3. **Review authentication logs** for suspicious activity
-4. **Notify affected users** and recommend password changes
+-- Force disconnect all sessions
+SELECT pg_terminate_backend(pid) 
+FROM pg_stat_activity 
+WHERE datname = 'production';
 
-**🔒 Prevention Measures:**
+-- Enable audit logging
+ALTER SYSTEM SET log_statement = 'all';
+SELECT pg_reload_conf();
+\`\`\`
 
-- Implement short token expiration times
-- Use token rotation for refresh tokens
-- Add device/IP binding to tokens
-- Store tokens securely (HttpOnly cookies, secure storage)
+**PHASE 2: Assessment (1-4 hours)**
 
-**✅ Recovery Checklist:**
+\`\`\`sql
+-- Check for data exfiltration
+SELECT usename, query, query_start 
+FROM pg_stat_activity 
+WHERE query ILIKE '%SELECT%FROM%users%'
+ORDER BY query_start DESC;
 
-1. [ ] JWT secrets rotated
-2. [ ] All sessions invalidated
-3. [ ] Users notified and re-authenticated
-4. [ ] Token security hardened
-5. [ ] Monitoring enhanced
-6. [ ] Incident report completed`;
-  }
+-- Review recent large exports
+SELECT * FROM pg_stat_user_tables 
+WHERE n_tup_ins > 1000 OR n_tup_del > 100;
+\`\`\`
 
-  if (breachLower.includes("database") || breachLower.includes("db") || breachLower.includes("sql")) {
-    return `**🚨 Breach Response Plan**
+**PHASE 3: User Protection (4-24 hours)**
+- [ ] Force password reset for all users
+- [ ] Invalidate all session tokens
+- [ ] Enable enhanced login monitoring
+- [ ] Notify affected users
 
-**Breach Type:** ${breachType}
+---
 
-**🔍 Exposure Analysis:**
+### Password Security Verification
 
-- 🔴 **User Data** - PII, emails, hashed passwords potentially exposed
-- 🔴 **Business Data** - Transactions, orders, internal records
-- 🔴 **Authentication Data** - User credentials and session data
-- 🟡 **Configuration Data** - Application settings and feature flags
+Check your password hashing:
 
-**💀 Potential Attacker Actions:**
+\`\`\`javascript
+// SECURE - bcrypt with cost factor >= 12
+const hash = await bcrypt.hash(password, 12);
 
-- **Data Theft** - Export entire database for sale or exploitation
-- **Data Manipulation** - Modify records, inject malicious data
-- **Credential Harvesting** - Attempt to crack password hashes
-- **Ransom** - Encrypt or threaten to leak data
+// INSECURE - MD5/SHA1 (change immediately!)
+// If you find: crypto.createHash('md5')
+// Or: crypto.createHash('sha1')
+// Users are at HIGH RISK
+\`\`\`
 
-**🛡️ Immediate Actions (First 1 Hour):**
+If using weak hashing, users should:
+1. Reset passwords immediately
+2. Be notified their credentials may be compromised
+3. Check for credential reuse on other sites
 
-1. ⚡ **Change database credentials** immediately
-2. ⚡ **Restrict database access** to known IPs only
-3. ⚡ **Take forensic snapshot** before any changes
-4. ⚡ **Review recent queries** for data exfiltration
-5. ⚡ **Enable enhanced audit logging**
+---
 
-**📋 Short-term Actions (24-48 Hours):**
+### Recovery Checklist for ${domain}
 
-1. **Assess data exposure scope** and affected records
-2. **Notify affected users** per regulatory requirements
-3. **Force password resets** for all users
-4. **Review application for injection vulnerabilities**
-
-**🔒 Prevention Measures:**
-
-- Implement database activity monitoring
-- Use parameterized queries to prevent SQL injection
-- Encrypt sensitive data at rest
-- Regular database access audits
-
-**✅ Recovery Checklist:**
-
-1. [ ] Database credentials rotated
-2. [ ] Access restricted and audited
-3. [ ] Data exposure assessed
-4. [ ] Users notified (if required)
-5. [ ] Security patches applied
-6. [ ] Compliance notifications sent`;
+| Task | Status | Owner |
+|------|--------|-------|
+| Database credentials rotated | [ ] | DevOps |
+| Connection strings updated | [ ] | DevOps |
+| All users force logged out | [ ] | Backend |
+| Password reset emails sent | [ ] | Backend |
+| Audit logs preserved | [ ] | Security |
+| Forensic snapshot taken | [ ] | Security |
+| Law enforcement notified | [ ] | Legal |
+| User notification sent | [ ] | Comms |`;
   }
 
   // Generic breach response
-  return `**🚨 Breach Response Plan**
+  return `## Incident Response: ${breachType}
 
-**Breach Type:** ${breachType}
+**Affected Application:** ${context.target}
+**Domain:** ${domain}
+**Tech Stack:** ${techStack.join(", ")}
 
-**🔍 Exposure Analysis:**
+---
 
-- 🟡 **Sensitive Information** - Assess what data or systems are affected
-- 🟡 **Access Credentials** - Determine if any credentials were exposed
-- 🟡 **System Access** - Evaluate what systems attacker could access
-- 🟢 **Lateral Movement Risk** - Assess potential for further compromise
+### Response Framework for ${domain}
 
-**💀 Potential Attacker Actions:**
+#### Phase 1: Identification (0-30 minutes)
 
-- **Information Gathering** - Use exposed data for further attacks
-- **Credential Abuse** - Attempt to access other systems
-- **Social Engineering** - Use information for targeted attacks
-- **Data Monetization** - Sell or ransom exposed data
+**Determine Scope:**
+- What systems are affected?
+- What data was potentially exposed?
+- How long was the exposure?
+- Who discovered the breach?
 
-**🛡️ Immediate Actions (First 1 Hour):**
+**Document Everything:**
+- [ ] Timestamp of discovery
+- [ ] Initial findings
+- [ ] Systems involved
+- [ ] Personnel notified
 
-1. ⚡ **Identify the scope** of the breach
-2. ⚡ **Contain the exposure** - revoke access, rotate credentials
-3. ⚡ **Preserve evidence** for investigation
-4. ⚡ **Alert security team** and stakeholders
-5. ⚡ **Begin incident documentation**
+---
 
-**📋 Short-term Actions (24-48 Hours):**
+#### Phase 2: Containment (30 min - 2 hours)
 
-1. **Conduct thorough investigation**
-2. **Implement additional security controls**
-3. **Notify affected parties** as required
-4. **Review and update security policies**
+**Immediate Actions for ${domain}:**
 
-**🔒 Prevention Measures:**
+| Action | Priority | Status |
+|--------|----------|--------|
+| Isolate affected systems | CRITICAL | [ ] |
+| Preserve evidence/logs | CRITICAL | [ ] |
+| Rotate exposed credentials | HIGH | [ ] |
+| Enable enhanced monitoring | HIGH | [ ] |
+| Notify incident team | HIGH | [ ] |
 
-- Regular security assessments and penetration testing
-- Implement least-privilege access controls
-- Enhanced monitoring and alerting
-- Security awareness training
+**DO NOT:**
+- Delete logs or evidence
+- Shut down systems without forensic capture
+- Communicate externally before legal review
+- Attempt to "fix" without documentation
 
-**✅ Recovery Checklist:**
+---
 
-1. [ ] Breach scope identified
-2. [ ] Credentials rotated
-3. [ ] Systems secured
-4. [ ] Stakeholders notified
-5. [ ] Monitoring enhanced
-6. [ ] Post-incident review scheduled`;
-}
+#### Phase 3: Eradication (2-24 hours)
 
-// Streaming helper to simulate typing effect
-export async function* streamDemoResponse(text: string): AsyncGenerator<string> {
-  const words = text.split(' ');
-  for (let i = 0; i < words.length; i++) {
-    yield words[i] + (i < words.length - 1 ? ' ' : '');
-    // Small delay to simulate streaming
-    await new Promise(resolve => setTimeout(resolve, 15 + Math.random() * 25));
-  }
+**Remove Threat:**
+- Identify root cause
+- Remove malicious access
+- Patch vulnerabilities
+- Verify clean state
+
+**Credential Rotation for ${domain}:**
+\`\`\`
+Priority 1: Database credentials
+Priority 2: API keys and tokens
+Priority 3: Service accounts
+Priority 4: User sessions (force re-auth)
+\`\`\`
+
+---
+
+#### Phase 4: Recovery (1-7 days)
+
+**Restore Operations:**
+- Deploy patched systems
+- Restore from clean backups if needed
+- Verify all integrations
+- Enhanced monitoring active
+
+**Validation Checklist:**
+- [ ] All credentials rotated
+- [ ] Vulnerabilities patched
+- [ ] Monitoring enhanced
+- [ ] Incident documented
+- [ ] Users notified (if required)
+
+---
+
+#### Phase 5: Lessons Learned (1-2 weeks)
+
+**Post-Incident Review:**
+- Root cause analysis
+- Timeline reconstruction
+- Control gap identification
+- Improvement recommendations
+
+**Document for ${domain}:**
+- What happened
+- How it was discovered
+- Response timeline
+- What worked well
+- What needs improvement`;
 }
