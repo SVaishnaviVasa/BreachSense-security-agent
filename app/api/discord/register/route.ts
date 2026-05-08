@@ -1,5 +1,5 @@
-const DISCORD_BOT_TOKEN = "MTUwMDQwMDM3MjE5MDI4MTkyOQ.Gwytui._3wlng4uZuw_aSyk61TlFB88klrouyifGLQs2g";
-const DISCORD_APP_ID = "1500400372190281929";
+const DISCORD_BOT_TOKEN = <DISCORD_BOT_TOKEN>;
+const DISCORD_APP_ID = <DISCORD_APP_ID>;
 
 const commands = [
   {
